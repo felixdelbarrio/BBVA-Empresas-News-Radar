@@ -1,0 +1,5 @@
+name: News Radar
+paths:
+  - codeql-source
+  - scripts
+  - .github

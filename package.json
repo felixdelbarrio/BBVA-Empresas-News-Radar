@@ -1,0 +1,16 @@
+{
+  "name": "bbva-empresas-news-radar",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=24"},
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "pretest": "npm run build",
+    "test": "node --test tests/*.test.mjs",
+    "prepreview": "npm run build",
+    "preview": "node scripts/preview.mjs",
+    "codeql:prepare": "node scripts/codeql-prepare.mjs",
+    "verify": "npm run check && npm test"
+  }
+}
