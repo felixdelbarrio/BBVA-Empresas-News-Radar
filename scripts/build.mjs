@@ -11,12 +11,12 @@ const c=vm.createContext({});vm.runInContext(read('Config.gs')+'\n'+read('Rules.
 const parts={
   Fonts:'<style>'+fonts.map(([file,family,weight])=>`@font-face{font-family:'${family}';font-style:normal;font-weight:${weight};font-display:swap;src:url('${data('fonts/'+file,'font/woff2')}') format('woff2');}`).join('\n')+'</style>',
   Tokens:tokens,Styles:read('Styles.html'),Client:read('Client.html'),
-  BbvaLogo:data('bbva-logo.png','image/png'),BiaLogo:data('bia.svg','image/svg+xml'),MaxFeeds:vm.runInContext('RADAR.maxFeeds',c),WindowDays:vm.runInContext('RADAR.windowDays',c),RetentionDays:vm.runInContext('RADAR.retentionDays',c),EventLimit:Number(vm.runInContext('RADAR.eventLimit',c)).toLocaleString('es-ES')
+  BbvaLogo:data('bbva-logo.png','image/png'),BiaLogo:data('bia.svg','image/svg+xml'),MaxFeeds:vm.runInContext('RADAR.maxCustomFeeds',c),WindowDays:vm.runInContext('RADAR.windowDays',c),RetentionDays:vm.runInContext('RADAR.retentionDays',c),EventLimit:Number(vm.runInContext('RADAR.eventLimit',c)).toLocaleString('es-ES')
 };
 const html=read('Index.html').replace(/\{\{(\w+)\}\}/g,(_,name)=>{if(!(name in parts))throw Error('Bloque desconocido: '+name);return parts[name];});
 const theme='const SHEET_THEME = Object.freeze('+JSON.stringify({background:color('color-primary-bg-action-pressed'),foreground:color('color-primary-text-on-main')})+');\n';
 const profile='const NEWS_PROFILE = Object.freeze('+fs.readFileSync(path.join(root,'assets/news-profile.json'),'utf8').trim()+');\n';
-const modules={Config:theme+profile+read('Config.gs'),Core:read('Rules.gs')+'\n'+read('Access.gs')+'\n'+read('Store.gs'),News:read('News.gs')+'\n'+read('Feeds.gs')+'\n'+read('Search.gs'),Metrics:read('Metrics.gs')};
+const modules={Config:theme+profile+read('Config.gs'),Core:read('Rules.gs')+'\n'+read('Access.gs')+'\n'+read('Store.gs'),News:read('News.gs')+'\n'+read('Sources.gs')+'\n'+read('Feeds.gs')+'\n'+read('Collection.gs'),Metrics:read('Metrics.gs')};
 new vm.Script(Object.values(modules).join('\n'));
 for(const file of fs.readdirSync(dist))fs.unlinkSync(path.join(dist,file));
 fs.writeFileSync(path.join(dist,'Index.html'),html);for(const [name,code] of Object.entries(modules))fs.writeFileSync(path.join(dist,name+'.gs'),code);fs.writeFileSync(path.join(dist,'appsscript.json'),read('appsscript.json'));

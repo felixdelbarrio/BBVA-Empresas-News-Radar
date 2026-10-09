@@ -45,7 +45,7 @@ function getAdoption() {
 }
 function getTelemetry() {
   authorize_(true);const rows=rows_('Telemetria',100).reverse(),usage=metrics_(rows_('Adopcion',RADAR.eventLimit),Date.now());
-  return {rows,latencyP95:usage.latencyP95,clientErrors:usage.failures,search:searchStatus_()};
+  return {rows,latencyP95:usage.latencyP95,clientErrors:usage.failures,collection:collectionStatus_()};
 }
 function maintenance_() {
   const lock=LockService.getScriptLock();lock.waitLock(10000);try{pruneEvents_();}finally{lock.releaseLock();}

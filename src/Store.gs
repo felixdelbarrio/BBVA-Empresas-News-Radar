@@ -20,9 +20,9 @@ function setupRadar() {
     }
     sheet=book.insertSheet(name);sheet.getRange(1,1,1,headers.length).setValues([headers]).setFontWeight('bold').setBackground(SHEET_THEME.background).setFontColor(SHEET_THEME.foreground);sheet.setFrozenRows(1);
   });
-  if (!p.getProperty('FEEDS')) p.setProperty('FEEDS',JSON.stringify(RADAR.feeds));
+  p.setProperty('FEEDS',JSON.stringify(customFeeds_()));
   if(p.getProperty('DAILY_ENABLED')==='true')enableDaily();
-  return 'News Radar actualizado: permisos de dominio, búsqueda, puntuación y métricas preparados.';
+  return 'News Radar preparado: fuentes predeterminadas, recopilación automática y métricas.';
 }
 function rows_(sheet, limit) {
   const s=book_().getSheetByName(sheet), count=s.getLastRow()-1;
