@@ -8,6 +8,13 @@ function context(email='felix.delbarrio@bbva.com'){
  c.LockService={getScriptLock:()=>({tryLock:()=>true,waitLock(){},releaseLock(){}})};
  vm.runInContext(source,c);return c;
 }
+test('extracción de texto omite comentarios y bloques ejecutables sin recomponer etiquetas',()=>{
+ const c=context();
+ assert.equal(c.plainText_('Antes<!-- <script>comentario</script> --><SCRIPT data-x="a">oculto</SCRIPT><style>css</style><p>Después</p>'),'Antes Después');
+ assert.equal(c.plainText_('Visible<script>sin cierre'),'Visible');
+ assert.equal(c.plainText_('<scr<script>ipt>oculto</scr</script>ipt>'), 'ipt>oculto ipt>');
+ assert.equal(c.plainText_('A<br>B &amp; &#243;'),'A B & ó');
+});
 const feed={name:'BBVA',domain:'bbva.com',entity:'BBVA',country:'Sin determinar'},now=new Date('2026-10-09T12:00:00Z'),item={title:'BBVA financia a empresas',excerpt:'Operación de financiación corporativa',url:'https://www.bbva.com/es/noticia/?utm_source=rss',date:'2026-10-08T11:00:00Z'};
 test('fecha, dominio y ventana son obligatorios; no inventa impacto',()=>{const c=context();const r=c.evaluate_(item,feed,now);assert.equal(r.item.topic,'Financiación');assert.equal(r.item.url,'https://www.bbva.com/es/noticia/');for(const change of [{date:''},{url:'https://bbva.com.evil.net/a'},{date:'2026-10-10'},{date:'2026-09-01'}])assert.ok(c.evaluate_({...item,...change},feed,now).reason);assert.equal(r.item.impacto,undefined);});
 test('excluye ruido retail; admite incidencias de banca empresarial',()=>{const c=context();assert.equal(c.classify_('Cómo ahorrar en vacaciones',''),'');assert.equal(c.classify_('Sostenibilidad en casa',''),'');assert.equal(c.classify_('Incidencia en BBVA Net Cash para empresas',''),'Continuidad de servicio');});

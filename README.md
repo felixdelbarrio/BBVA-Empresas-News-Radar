@@ -37,6 +37,8 @@ CI ejecuta comprobaciones de sintaxis, integridad de permisos, build y pruebas e
 
 La licencia inicial del repositorio se conserva en `LICENSE`. Los logotipos y las tipografías aportadas mantienen los derechos de sus respectivos titulares.
 
+`master` y `develop` requieren pull request y los checks `Integrity and tests`, `Analyze (javascript-typescript)`, `Analyze (actions)` y `Branch policy`. Las protecciones también se aplican a administradores; no permiten force push ni eliminar estas ramas. No se exige aprobación de otro usuario mientras el repositorio tenga un único mantenedor.
+
 ## Módulos
 
 - `src/Config.gs`: parámetros, esquemas, países, reglas estratégicas y dominios permitidos.

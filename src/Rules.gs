@@ -1,5 +1,19 @@
 function plainText_(value) {
-  return String(value || '').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,'').replace(/<[^>]*>/g,' ').replace(/&#(x[\da-f]+|\d+);/gi,(_,n)=>String.fromCodePoint(Math.min(parseInt(n[0].toLowerCase()==='x'?n.slice(1):n,n[0].toLowerCase()==='x'?16:10),0x10ffff))).replace(/&(?:amp|lt|gt|quot|apos|nbsp);/g,m=>({'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&apos;':"'",'&nbsp;':' '})[m]).replace(/\s+/g,' ').trim();
+  const html=String(value||''), parts=[];
+  let cursor=0, hidden='';
+  // Extrae texto para clasificación. El cliente escapa este texto al mostrarlo.
+  for(const tag of html.matchAll(/<!--[\s\S]*?(?:-->|$)|<[^>]*(?:>|$)/g)){
+    if(!hidden)parts.push(html.slice(cursor,tag.index),' ');
+    const name=tag[0].match(/^<\s*(\/?)\s*(script|style)\b/i);
+    if(name){
+      const kind=name[2].toLowerCase();
+      if(!name[1]&&!hidden)hidden=kind;
+      else if(name[1]&&hidden===kind)hidden='';
+    }
+    cursor=tag.index+tag[0].length;
+  }
+  if(!hidden)parts.push(html.slice(cursor));
+  return parts.join('').replace(/&#(x[\da-f]+|\d+);/gi,(_,n)=>String.fromCodePoint(Math.min(parseInt(n[0].toLowerCase()==='x'?n.slice(1):n,n[0].toLowerCase()==='x'?16:10),0x10ffff))).replace(/&(?:amp|lt|gt|quot|apos|nbsp);/g,m=>({'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&apos;':"'",'&nbsp;':' '})[m]).replace(/\s+/g,' ').trim();
 }
 function canonicalUrl_(value) {
   const match = String(value || '').trim().match(/^https:\/\/([a-z0-9.-]+)(?::443)?(\/[^#?]*)?(?:\?([^#]*))?(?:#.*)?$/i);
