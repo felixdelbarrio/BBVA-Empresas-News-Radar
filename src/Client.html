@@ -1,7 +1,7 @@
 <script>
 (() => {
   const $=id=>document.getElementById(id), form=$('filters');
-  const state={page:0,view:'radar',data:null,request:0,busy:false,candidates:[]};
+  const state={page:0,view:'radar',data:null,request:0,busy:false};
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const validUrl=value=>/^https:\/\//i.test(value||'')?value:'';
   const date=value=>value?new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Madrid'}).format(new Date(value)):'Sin ejecuciones';
@@ -26,12 +26,12 @@
   function currentFeeds() {return [...$('source-fields').children].map(el=>Object.fromEntries([...el.querySelectorAll('[data-key]')].map(x=>[x.dataset.key,x.value])));}
   function render(data) {
     state.data=data;
-    options('country',data.countries);options('topic',data.topics);
-    const metrics=[['Publicaciones',data.stats.news,'En el período seleccionado'],['Fuentes',data.stats.sources,'Editores con publicaciones'],['Geografías',data.stats.countries,'País explícito en la fuente'],['Señales para revisar',data.stats.signals,'Regulación y ratings']];
+    options('country',data.countries);options('topic',data.topics);options('entity',data.entities);options('source',data.sources);
+    const metrics=[['Publicaciones',data.stats.news,'En el período seleccionado'],['Fuentes',data.stats.sources,'Editores con publicaciones'],['Ámbitos',data.stats.countries,'Geografías de seguimiento'],['Regulación y ratings',data.stats.signals,'Publicaciones en la selección']];
     $('metrics').innerHTML=metrics.map(([label,value,note])=>`<article class="metric"><p class="eyebrow">${label}</p><strong>${value}</strong><span class="small muted">${note}</span></article>`).join('');
     $('insights').innerHTML=data.insights.map(x=>'<li>'+escape(x)+'</li>').join('');
-    $('coverage').textContent=data.sourceCount+' fuentes RSS de partida y búsqueda pública por países y temas. Los candidatos se verifican antes de asignar puntuación; la cobertura del índice no garantiza todas las noticias.';
-    $('news-list').innerHTML=data.items.length?data.items.map(n=>`<article class="news-item"><div class="news-meta"><span class="badge">${escape(n.tema)}</span><time datetime="${escape(n.fecha)}">${escape(n.fecha)}</time><span>${escape(n.pais)}</span><span>${escape(n.medio)}</span></div><h3><a href="${escape(validUrl(n.url))}" target="_blank" rel="noopener noreferrer">${escape(n.titular)}</a></h3><p>${escape(n.extracto||'El feed no proporciona un extracto. Consulta la publicación original.')}</p><div class="news-footer"><span class="muted">${escape(n.entidad)} · ${escape(n.estado)}${n.impacto!==''&&n.impacto!=null?' · '+escape(n.tipo_impacto)+' ('+escape(n.impacto)+')':''}</span>${data.admin?`<button class="button verify-news" data-id="${escape(n.id)}">Verificar / puntuar</button>`:''}<a href="${escape(validUrl(n.url))}" target="_blank" rel="noopener noreferrer">Leer fuente original ↗</a></div></article>`).join(''):'<div class="panel empty"><p class="eyebrow">Tu radar está preparado</p><h2>Aún no hay noticias en esta selección.</h2><p>Recopila las fuentes configuradas o ajusta los filtros. Las publicaciones fuera del ámbito de empresas/CIB quedan registradas en la auditoría.</p></div>';
+    $('coverage').textContent=data.sourceCount+' fuentes activas. Los feeds oficiales y las fuentes de Google News se recopilan automáticamente; sus publicaciones se integran en este radar.';
+    $('news-list').innerHTML=data.items.length?data.items.map(n=>`<article class="news-item"><div class="news-meta"><span class="badge">${escape(n.tema)}</span><time datetime="${escape(n.fecha)}">${escape(n.fecha)}</time><span>${escape(n.pais)}</span><span>${escape(n.medio)}</span></div><h3><a href="${escape(validUrl(n.url))}" target="_blank" rel="noopener noreferrer">${escape(n.titular)}</a></h3><p>${escape(n.extracto||'El feed no proporciona un extracto. Consulta la publicación original.')}</p><div class="news-footer"><span class="muted">${escape(n.entidad)} · ${escape(n.fuente||n.medio)}</span><a href="${escape(validUrl(n.url))}" target="_blank" rel="noopener noreferrer">Abrir noticia ↗</a></div></article>`).join(''):'<div class="panel empty"><p class="eyebrow">Tu radar está preparado</p><h2>Aún no hay noticias en esta selección.</h2><p>Recopila las fuentes configuradas o ajusta los filtros. Las publicaciones fuera del ámbito de empresas/CIB quedan registradas en la auditoría.</p></div>';
     $('result-count').textContent=data.total+' publicaciones';
     $('page-label').textContent=data.total?'Página '+(data.page+1)+' de '+Math.ceil(data.total/data.pageSize):'Sin resultados';
     $('previous').disabled=data.page===0;$('next').disabled=(data.page+1)*data.pageSize>=data.total;
@@ -44,9 +44,9 @@
     if (data.admin&&validUrl(data.sheetUrl)) {$('sheet-link').href=data.sheetUrl;$('sheet-link').hidden=false;}
     if(data.admin){
     sourceFields(data.feeds);
-    $('verify-criterion').innerHTML='<option value="">Seleccionar criterio</option>'+data.scoreRules.map(r=>`<option value="${escape(r.id)}">${escape(r.label)} (${r.score>0?'+':''}${r.score})</option>`).join('');
-    $('verify-country').innerHTML='<option value="">Seleccionar país</option>'+data.searchCountries.map(country=>'<option>'+escape(country)+'</option>').join('');
-    $('search-status').textContent=searchText(data.search);
+    $('configured-source-count').textContent=data.configuredFeeds.length+' fuentes configuradas · '+data.sourceCount+' activas';
+    $('configured-sources-body').innerHTML=data.configuredFeeds.map(feed=>`<tr><td><input type="checkbox" class="source-enabled" data-id="${escape(feed.id)}" aria-label="Activar ${escape(feed.name)}" ${feed.enabled?'checked':''}></td><td>${escape(feed.name)}</td><td>${escape(feed.country)}</td><td>${feed.kind==='profile'?'Google News RSS':'RSS del editor'}</td><td><a href="${escape(validUrl(feed.url))}" target="_blank" rel="noopener noreferrer">Abrir feed ↗</a></td></tr>`).join('');
+    $('collection-status').textContent=collectionText(data.collection);
     $('runs-body').innerHTML=data.runs.map(r=>`<tr><td>${escape(date(r.inicio))}</td><td>${escape(r.estado)}</td><td>${escape(r.evaluadas)}</td><td>${escape(r.nuevas)}</td><td>${escape(r.errores||'—')}</td></tr>`).join('')||'<tr><td colspan="5">Sin ejecuciones registradas.</td></tr>';
     }
   }
@@ -58,8 +58,8 @@
   }
   async function action(fn) {
     if(state.busy)return;state.busy=true;
-    document.querySelectorAll('.actions button,#sources-form button,#verify-form button,#start-search,#retry-search').forEach(el=>el.disabled=true);
-    try {await fn();await load();}catch(e){message(e.message||String(e),true);}finally{state.busy=false;document.querySelectorAll('.actions button,#verify-form button,#start-search,#retry-search').forEach(el=>el.disabled=false);if(state.data){sourceFields(currentFeeds());$('previous').disabled=state.page===0;$('next').disabled=(state.page+1)*state.data.pageSize>=state.data.total;}}
+    document.querySelectorAll('.actions button,#sources-form button,#retry-collection,#save-source-settings').forEach(el=>el.disabled=true);
+    try {await fn();await load();}catch(e){message(e.message||String(e),true);}finally{state.busy=false;document.querySelectorAll('.actions button,#retry-collection,#save-source-settings').forEach(el=>el.disabled=false);if(state.data){sourceFields(currentFeeds());$('previous').disabled=state.page===0;$('next').disabled=(state.page+1)*state.data.pageSize>=state.data.total;}}
   }
   async function setView(view) {
     if(!['radar','news'].includes(view)&&!state.data?.admin)return;
@@ -68,7 +68,6 @@
     ['audit','sources','telemetry','adoption'].forEach(name=>$(name+'-section').hidden=view!==name);
     $('page-title').textContent={radar:'Radar de actualidad',news:'Noticias',audit:'Auditoría',sources:'Fuentes y programación',telemetry:'Telemetría',adoption:'Adopción'}[view];
     document.querySelectorAll('[data-view]').forEach(el=>{if(el.dataset.view===view)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});
-    if(view==='sources')await loadCandidates();
     if(view==='telemetry'||view==='adoption')await loadMetrics(view);
     if(view==='audit')try{
       const rows=await call('getAudit');$('audit-body').innerHTML=rows.map(r=>`<tr><td>${escape(date(r.fecha))}</td><td>${escape(r.fuente)}</td><td>${escape(r.resultado)}</td><td>${escape(r.motivo)} ${validUrl(r.url)?`<a href="${escape(r.url)}" target="_blank" rel="noopener noreferrer">Fuente ↗</a>`:''}</td></tr>`).join('')||'<tr><td colspan="4">Sin entradas de auditoría.</td></tr>';
@@ -77,17 +76,16 @@
   document.querySelector('.nav').addEventListener('click',e=>{const button=e.target.closest('[data-view]');if(button)setView(button.dataset.view);});
   let timer;form.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>{state.page=0;track('filtro');load();},250);});form.addEventListener('submit',e=>e.preventDefault());
   $('previous').addEventListener('click',()=>{state.page--;load();});$('next').addEventListener('click',()=>{state.page++;load();});
-  $('collect').addEventListener('click',()=>action(async()=>{const result=await call('collectNow');message(result.added+' noticias nuevas de '+result.evaluated+' publicaciones evaluadas.'+(result.errors.length?' '+result.errors.join(' | '):''),result.errors.length>0);}));
+  $('collect').addEventListener('click',()=>action(async()=>{const result=await call('collectNow');message(result.added+' noticias nuevas. '+(result.pending||0)+' fuentes pendientes; la recopilación continúa automáticamente.'+(result.errors.length?' '+result.errors.join(' | '):''),result.errors.length>0);}));
   $('sources-form').addEventListener('submit',e=>{e.preventDefault();action(async()=>{await call('saveFeeds',currentFeeds());message('Fuentes guardadas.');});});
-  $('add-source').addEventListener('click',()=>{const feeds=currentFeeds();if(feeds.length>=Number($('source-fields').dataset.max))return message('Máximo 12 fuentes por recopilación.',true);sourceFields([...feeds,{country:'Sin determinar'}]);});
+  $('add-source').addEventListener('click',()=>{const feeds=currentFeeds();if(feeds.length>=Number($('source-fields').dataset.max))return message('Máximo '+$('source-fields').dataset.max+' fuentes adicionales.',true);sourceFields([...feeds,{country:'Sin determinar'}]);});
   $('source-fields').addEventListener('click',e=>{if(e.target.closest('.remove-source'))e.target.closest('fieldset').remove();});
   $('toggle-daily').addEventListener('click',()=>action(async()=>{const enabled=state.data.daily;await call(enabled?'disableDaily':'enableDaily');message(enabled?'Recopilación diaria desactivada.':'Recopilación diaria activada entre las 07:00 y 08:00 de Madrid.');}));
   $('export').addEventListener('click',()=>action(async()=>{
     const result=await call('exportNews',query());
     const url=URL.createObjectURL(new Blob([result.csv],{type:'text/csv;charset=utf-8'})), link=document.createElement('a');link.href=url;link.download='news-radar.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);track('exportacion');message(result.count+' publicaciones exportadas.');
   }));
-  function searchText(s){return s.running?'Búsqueda en curso: '+s.queries+' consultas, '+s.pending+' líneas pendientes, '+s.candidates+' candidatos por verificar.':s.tasks?s.queries+' consultas; '+s.failed+' líneas con error; '+s.limited+' con límite; '+s.candidates+' candidatos por verificar.':'El plan de búsqueda aún no se ha iniciado.';}
-  async function loadCandidates(){try{state.candidates=await call('getCandidates');$('candidates-body').innerHTML=state.candidates.map(c=>`<tr><td>${escape(c.fecha)}</td><td>${escape(c.pais_objetivo)} (objetivo)</td><td><a href="${escape(validUrl(c.url_indice))}" target="_blank" rel="noopener noreferrer">${escape(c.titular)}</a></td><td><button class="button verify-candidate" data-id="${escape(c.id)}">Verificar fuente original</button></td></tr>`).join('')||'<tr><td colspan="4">Sin candidatos pendientes. Se muestran hasta 50.</td></tr>';}catch(e){message(e.message,true);}}
+  function collectionText(status){return status.total?status.processed+' de '+status.total+' fuentes consultadas; '+status.pending+' pendientes y '+status.failed+' con error. Las noticias se integran automáticamente.':'Las fuentes están activas. La próxima recopilación las consultará por lotes.';}
   function metricCards(values){return values.map(([label,value,note])=>`<article class="metric"><p class="eyebrow">${escape(label)}</p><strong>${escape(value??'—')}</strong><span class="small muted">${escape(note)}</span></article>`).join('');}
   async function loadMetrics(view){try{const data=await call(view==='adoption'?'getAdoption':'getTelemetry');if(state.view!==view)return;
     if(view==='adoption'){
@@ -96,16 +94,13 @@
       $('adoption-body').innerHTML=data.users.map(u=>`<tr><td>${escape(u.correo)}</td><td>${escape(date(u.first))}</td><td>${escape(date(u.last))}</td><td>${u.sessions}</td><td>${u.actions}</td></tr>`).join('')||'<tr><td colspan="5">Sin actividad registrada.</td></tr>';
       $('adoption-daily').innerHTML=data.daily.map(d=>`<tr><td>${escape(d.date)}</td><td>${d.users}</td><td>${d.sessions}</td></tr>`).join('');
     }else{
-      $('telemetry-metrics').innerHTML=metricCards([['Latencia p95',data.latencyP95==null?'—':data.latencyP95+' ms','Cargas · 30 días'],['Errores cliente',data.clientErrors,'Eventos recibidos · 30 días'],['Consultas',data.search.queries,'Plan de búsqueda actual'],['Pendientes',data.search.pending,'Líneas de búsqueda']]);
+      $('telemetry-metrics').innerHTML=metricCards([['Latencia p95',data.latencyP95==null?'—':data.latencyP95+' ms','Cargas · 30 días'],['Errores cliente',data.clientErrors,'Eventos recibidos · 30 días'],['Fuentes consultadas',data.collection.processed,'Recopilación actual'],['Pendientes',data.collection.pending,'Fuentes por consultar']]);
       $('telemetry-body').innerHTML=data.rows.map(r=>`<tr><td>${escape(date(r.fecha))}</td><td>${escape(r.operacion)}</td><td>${escape(r.duracion_ms)} ms</td><td>${escape(r.estado)}</td><td>${escape(r.detalle)}</td></tr>`).join('')||'<tr><td colspan="5">Sin telemetría de operación.</td></tr>';
     }
   }catch(e){message(e.message,true);}}
-  async function verification(item,candidate){await setView('sources');const f=$('verify-form');f.reset();for(const [key,value] of Object.entries({id:item.id,url:candidate?'':item.url,title:item.titular,date:item.fecha,entity:candidate?'':item.entidad,country:candidate?'':item.pais}))f.elements[key].value=value||'';$('verification').scrollIntoView({block:'start',behavior:'auto'});}
-  $('news-list').addEventListener('click',e=>{const button=e.target.closest('.verify-news');if(button)verification(state.data.items.find(n=>n.id===button.dataset.id),false);if(e.target.closest('a'))track('lectura');});
-  $('candidates-body').addEventListener('click',e=>{const button=e.target.closest('.verify-candidate');if(button)verification(state.candidates.find(c=>c.id===button.dataset.id),true);});
-  $('verify-form').addEventListener('submit',e=>{e.preventDefault();action(async()=>{message(await call('verifyNews',Object.fromEntries(new FormData(e.target))));e.target.reset();await loadCandidates();});});
-  $('retry-search').addEventListener('click',()=>action(async()=>message(await call('retrySearchErrors'))));
-  $('start-search').addEventListener('click',()=>action(async()=>{message(await call('startSearch'));await loadCandidates();}));
+  $('save-source-settings').addEventListener('click',()=>action(async()=>message(await call('saveSourceSettings',[...document.querySelectorAll('.source-enabled:checked')].map(input=>input.dataset.id)))));
+  $('news-list').addEventListener('click',event=>{if(event.target.closest('a'))track('lectura');});
+  $('retry-collection').addEventListener('click',()=>action(async()=>message(await call('retryCollectionErrors'))));
   if(window.RADAR_PREVIEW)$('preview-banner').hidden=false;
   load();
 })();

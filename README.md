@@ -41,36 +41,39 @@ La licencia inicial del repositorio se conserva en `LICENSE`. Los logotipos y la
 
 ## Módulos
 
-- `src/Config.gs`: parámetros, esquemas, países, reglas estratégicas y dominios permitidos.
-- `assets/news-profile.json`: perfil aportado, conservado completo: 7 geografías, 3 alias, 5 temas y 27 referencias a competidores locales.
+- `src/Config.gs`: parámetros, esquemas y clasificación temática.
+- `assets/news-profile.json`: perfil completo de entidades, alias, temas y siete geografías.
 - `src/Access.gs`: identidad activa y autorización de dominio/administrador.
-- `src/Store.gs`: almacenamiento por lotes e inicialización idempotente.
-- `src/Rules.gs`: funciones puras de clasificación, filtrado, puntuación, consultas y resumen.
-- `src/Feeds.gs`: RSS oficiales y activador diario.
-- `src/Search.gs`: plan de búsqueda, candidatos y verificación de artículos.
-- `src/News.gs`: consultas y exportación de noticias.
-- `src/Metrics.gs`: telemetría, eventos y agregaciones de adopción.
+- `src/Store.gs`: almacenamiento por lotes e inicialización.
+- `src/Rules.gs`: limpieza, clasificación, filtros y resumen centralizados.
+- `src/Sources.gs`: las fuentes predeterminadas, las adicionales y su activación.
+- `src/Feeds.gs`: lectura RSS y conversión automática a noticias.
+- `src/Collection.gs`: cola persistente, activadores y reintentos por fuente.
+- `src/News.gs`: consultas y exportación.
+- `src/Metrics.gs`: telemetría y adopción.
 - `src/Index.html`, `Client.html`, `Tokens.html`, `Styles.html`: estructura, comportamiento, tokens y estilos centralizados.
 
-`npm run build` valida la sintaxis y genera cuatro módulos Apps Script por responsabilidad (`Config.gs`, `Core.gs`, `News.gs`, `Metrics.gs`), un HTML autónomo y el manifiesto. No hay implementaciones duplicadas ni adaptadores para versiones antiguas. `npm test` comprueba autorización, privacidad, perfiles completos, reglas estratégicas, evidencia, métricas y deduplicación.
+El build genera cuatro módulos Apps Script (`Config.gs`, `Core.gs`, `News.gs`, `Metrics.gs`), un HTML autónomo y un manifiesto. Las hojas operativas son Noticias, Auditoria, Ejecuciones, Recopilacion, Telemetria y Adopcion.
+
+## Fuentes y recopilación automática
+
+Hay 57 fuentes predeterminadas: los dos RSS oficiales de BBVA y 55 feeds RSS de Google News que combinan las entidades del JSON con cada geografía. Se incluyen BBVA Empresas, sus tres alias y las 27 referencias a competidores. Todas comienzan activas. El JSON no aporta URLs RSS de los bancos: las fuentes del perfil son agregadas y la interfaz indica su proveedor.
+
+Cada feed agregado consulta la entidad y el país, con los cinco temas del perfil y sus equivalentes en turco. La activación se puede cambiar desde Fuentes; las opciones se guardan en el servidor y no alteran noticias ya incorporadas. Se admiten hasta 12 feeds RSS 2.0 adicionales. Entidad, ámbito, medio, tema y fechas se pueden combinar para filtrar noticias. Los alias de BBVA se agrupan bajo BBVA y los nombres de entidades se centralizan. El ámbito geográfico es el seguimiento de la fuente; no certifica la jurisdicción de una operación.
+
+Las publicaciones se incorporan directamente a Noticias con fecha, medio, entidad, ámbito, tema y enlace, sin aprobación, formularios de verificación ni puntuaciones. Los enlaces de Google News se mantienen como enlaces agregados, no se presentan como URLs canónicas de editores. La clasificación temática, el límite temporal y la deduplicación por URL se aplican al recibir el RSS. El resumen incluye las noticias disponibles sin intervención manual.
+
+La captura diaria empieza entre 07:00–08:00 Europe/Madrid. Consulta hasta tres fuentes secuenciales por minuto mediante una cola persistente. HTTP 429/503 se reintenta hasta tres veces con diez minutos de separación; si falla la mayoría del lote, se pausa cinco minutos. Las fuentes desactivadas durante un ciclo se omiten. Un ciclo en curso se conserva al iniciar otro; su estado y sus errores son visibles al administrador. La disponibilidad y cobertura de Google News pueden variar.
+
+Las escrituras de noticias, auditoría y estados se agrupan por lote. Los estados se guardan después de las noticias para que un fallo no marque como recopiladas publicaciones que no llegaron a almacenarse. Consultas y exportación leen como máximo las últimas 10.000 noticias; el histórico completo permanece en Sheets. No se mantienen colas de candidatos ni hojas de búsquedas.
 
 ## Instalación
 
-Copiar los seis archivos de `dist` al proyecto de Apps Script. Ejecutar `setupRadar` desde el editor con la cuenta propietaria. Conserva las noticias existentes y añade las columnas de impacto y nuevas hojas. Si la programación diaria ya estaba activa, actualiza su activador.
+Copiar los seis archivos de `dist/` al proyecto de Apps Script y ejecutar `setupRadar` con la cuenta propietaria sobre una hoja con los esquemas actuales. La instalación existente se ha actualizado una vez, fuera del código de ejecución, para retirar las columnas y pestañas del flujo anterior y conservar las noticias útiles.
 
-Implementar como **Yo (felix.delbarrio@bbva.com)** y permitir **usuarios de bbva.com**. Las cuatro autorizaciones del propietario son Sheets, peticiones externas, activadores e identidad de correo. No se añaden Gmail, Drive ni Directory. Los visitantes ejecutan con las autorizaciones del propietario; no se comparte la hoja. Google Workspace debe revelar el correo activo dentro del dominio: si su política lo oculta, el servidor deniega acceso en vez de atribuirles la identidad del propietario.
+Implementar como **Yo (felix.delbarrio@bbva.com)** y permitir **usuarios de bbva.com**. Las cuatro autorizaciones del propietario son Sheets, peticiones externas, activadores e identidad de correo. No se añaden Gmail, Drive ni Directory. La hoja y el proyecto permanecen privados. Si Google Workspace oculta el correo activo, el servidor deniega acceso; no lo sustituye por el del propietario.
 
-El administrador es exclusivamente `OWNER_EMAIL`. Auditoría, fuentes, hoja, verificación y métricas requieren autorización en el servidor, además de ocultarse en la interfaz. La hoja y el proyecto deben permanecer privados.
-
-## Búsqueda sin API
-
-Se generan 488 líneas de búsqueda: 105 país/tema core, 300 país/competidor del complemento y las 83 combinaciones adicionales del JSON. Las consultas se ejecutan contra RSS de Google News, hasta 3 secuenciales por minuto, con pausa de 5 minutos cuando falla la mayoría del lote y hasta 3 intentos espaciados 10 minutos para HTTP 429/503. Temas core: mínimo 3 consultas; otras líneas: mínimo 2. Continúan hasta 3 iteraciones sin URLs nuevas o un máximo de 12. Cada consulta y candidato se audita; errores y límites no se consideran cobertura completa. Los perfiles del JSON no contienen URLs RSS: se incorporan como búsquedas, sin inventar direcciones de editores.
-
-El agotamiento de un índice público **no garantiza todas las noticias ni reproduce la verificación semántica autónoma del agente del complemento**. Google puede limitar, omitir resultados o cambiar su RSS. Las URLs de Google News se conservan como enlaces de candidatos; nunca se presentan como URL canónica del editor. El país objetivo de una búsqueda no se atribuye a la noticia.
-
-Para publicar y puntuar un candidato, el administrador aporta su URL canónica, titular, fecha, entidad, país y una cita literal que demuestre el criterio elegido. Se valida dominio permitido, respuesta HTTP, fecha del editor, titular, entidad, país y cita. El administrador valida la relevancia semántica, el rol, importe y KPI; el servidor aplica determinísticamente las reglas –5 a +5. No se infieren importes ni roles, y los pendientes no forman parte del resumen estratégico. La deduplicación automática se limita a URLs; no fusiona operaciones por similitud.
-
-La captura diaria se realiza entre 07:00–08:00 Europe/Madrid. El plan de búsqueda continúa mediante su activador por lotes. Si un plan sigue en curso, la siguiente captura no lo reemplaza.
+El administrador es exclusivamente `OWNER_EMAIL`. Auditoría, fuentes, hoja y métricas requieren autorización en el servidor además de ocultarse en la interfaz.
 
 ## Telemetría y adopción
 
@@ -78,4 +81,4 @@ Adopción almacena correo obtenido en el servidor, fecha, sesión, tipo de event
 
 Telemetría registra duración y resultado de recopilación/búsqueda y p95 de cargas observado por el navegador. p95 incluye red y servidor. Los errores de cliente son eventos recibidos, no una medida de todos los fallos posibles.
 
-Los cambios de perfiles, estilos y cálculo se hacen en su fuente única y se distribuyen con el build. La búsqueda usa persistencia entre lotes y bloqueos de concurrencia; el HTML incrusta únicamente las fuentes tipográficas necesarias y los dos logos con transparencia.
+Los cambios de perfiles, estilos y cálculo se hacen en su fuente única y se distribuyen con el build. La recopilación usa persistencia entre lotes y bloqueos de concurrencia; el HTML incrusta únicamente las fuentes tipográficas necesarias y los dos logos con transparencia.
