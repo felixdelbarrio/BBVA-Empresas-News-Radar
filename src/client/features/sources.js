@@ -1,6 +1,8 @@
-import { $, escape, validUrl, date, message } from "../core/dom.js";
+import { $, escape, date, message } from "../core/dom.js";
 import { call } from "../core/api.js";
+import {createSourceCatalog} from "./source-catalog.js";
 function createSources({ getData, run }) {
+  const catalog=createSourceCatalog();
   let busy = false, signature = "";
   function sourceFields(feeds) {
     $("source-fields").innerHTML = feeds.map((f, i) => `<fieldset class="source"><legend>Fuente ${i + 1}</legend>${[["name", "Nombre"], ["url", "URL del feed RSS"], ["domain", "Dominio del editor"], ["entity", "Entidad"], ["country", "País / alcance"]].map(([key, label]) => `<label class="${key === "url" ? "wide" : ""}">${label}<input data-key="${key}" value="${escape(f[key] || "")}" ${key === "url" ? 'type="url"' : ""} required></label>`).join("")}<label>Activa<input type="checkbox" data-key="enabled" ${f.enabled!==false?"checked":""}></label><button class="button remove-source" type="button">Eliminar fuente</button></fieldset>`).join("");
@@ -36,7 +38,7 @@ function createSources({ getData, run }) {
     const result=await call(enabled ? "disableDaily" : "enableDaily");
     message(enabled ? "Recopilación diaria desactivada." : result);
   }));
-  $("save-source-settings").addEventListener("click", () => run(async () => message(await call("saveSourceSettings", [...document.querySelectorAll(".source-enabled:checked")].map((input) => input.dataset.id)))));
+  $("save-source-settings").addEventListener("click", () => run(async () => message(await call("saveSourceSettings", catalog.selected()))));
   $("retry-collection").addEventListener("click", () => run(async () => message(await call("retryCollectionErrors"))));
   return { render(data) {
     const next = JSON.stringify([data.feeds, data.configuredFeeds]);
@@ -44,8 +46,7 @@ function createSources({ getData, run }) {
       signature = next;
       sourceFields(data.feeds);
       $("source-fields").dataset.max=data.maxFeeds;$("source-limit").textContent=data.maxFeeds;
-      $("configured-source-count").textContent = data.configuredFeeds.length + " fuentes configuradas · " + data.sourceCount + " activas";
-      $("configured-sources-body").innerHTML = data.configuredFeeds.map((feed) => `<tr><td><input type="checkbox" class="source-enabled" data-id="${escape(feed.id)}" aria-label="Activar ${escape(feed.name)}" ${feed.enabled ? "checked" : ""}></td><td>${escape(feed.name)}</td><td>${escape(feed.country)}</td><td>${feed.kind === "profile" ? "Google News RSS" : "RSS del editor"}</td><td><a href="${escape(validUrl(feed.url))}" target="_blank" rel="noopener noreferrer">Abrir feed ↗</a></td></tr>`).join("");
+      catalog.update(data.configuredFeeds,data.pageSize);
     }
     $("source-schedule").textContent=data.schedule||"";
     $("collection-status").textContent = collectionText(data.collection);
