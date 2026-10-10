@@ -74,15 +74,16 @@ test('exportar no vuelve a consultar el dashboard ni reconstruye los formularios
 });
 
 
-test('la selección inicial se obtiene del servidor y puede cambiar sin recompilar',async()=>{
+test('la selección inicial se obtiene del servidor',async()=>{
   const c=client();assert.equal(c.requests[0].query.initial,true);c.requests[0].resolve({...dashboard('Inicial'),initial:true,selection:{entity:'Santander',segment:'Retail',topic:'',country:'México'},segments:['Retail']});await settle();
   assert.equal(c.form.elements.entity.value,'Santander');assert.equal(c.form.elements.segment.value,'Retail');assert.equal(c.form.elements.country.value,'México');
 });
-test('Radar y Noticias comparten selección y tienen contenido distinto; administración deniega lectores',async()=>{
+test('Radar y Noticias conservan selecciones independientes; administración deniega lectores',async()=>{
   const c=client();c.requests[0].resolve(dashboard('Inicial'));await settle();c.change('country','México');
   c.requests.at(-1).resolve(dashboard('México'));await settle();
   await c.element('.nav').listeners.click({target:{closest:()=>({dataset:{view:'news'}})}});await settle();
-  assert.equal(c.element('radar-section').hidden,true);assert.equal(c.element('news-section').hidden,false);assert.equal(c.form.elements.country.value,'México');
+  assert.equal(c.element('radar-section').hidden,true);assert.equal(c.element('news-section').hidden,false);assert.equal(c.form.elements.country.value,'');
+  assert.equal(c.requests.at(-1).query.view,'news');
   const count=c.requests.length;await c.element('.nav').listeners.click({target:{closest:()=>({dataset:{view:'administration'}})}});await settle();assert.equal(c.element('page-title').textContent,'Noticias');assert.equal(c.requests.length,count);
   await c.element('.nav').listeners.click({target:{closest:()=>({dataset:{view:'radar'}})}});await settle();assert.equal(c.element('radar-section').hidden,false);assert.equal(c.element('news-section').hidden,true);
 });
@@ -112,4 +113,26 @@ test('la activación de fuentes persiste al buscar y paginar antes de guardar',a
  c.element('configured-sources-body').listeners.change({target:{matches:()=>true,dataset:{id:'0'},checked:false}});c.element('source-next').listeners.click();assert.match(c.element('configured-sources-body').innerHTML,/Fuente 30/);
  c.element('source-search').value='Fuente 0';c.element('source-search').listeners.input();assert.doesNotMatch(c.element('configured-sources-body').innerHTML,/ checked/);
  c.element('save-source-settings').listeners.click();await settle();const saved=c.rpc.find(row=>row.method==='saveSourceSettings').query;assert.equal(saved.length,30);assert.ok(!saved.includes('0'));assert.ok(saved.includes('30'));
+});
+
+test('Radar oculta filtros adicionales y cambiar de vista conserva cada selección sin consultas duplicadas',async()=>{
+  const c=client();c.requests[0].resolve({...dashboard('Inicial'),initial:true,selection:{entity:'',segment:'Empresas e instituciones'}});await settle();
+  assert.equal(c.element('geography-filter').hidden,true);assert.equal(c.element('advanced-filters').hidden,true);assert.equal(c.form.elements.segment.value,'Empresas e instituciones');
+  c.change('entity','Santander');c.requests.at(-1).resolve({...dashboard('Radar'),selection:{entity:'Santander',segment:'Empresas e instituciones'}});await settle();
+  await c.element('.nav').listeners.click({target:{closest:()=>({dataset:{view:'news'}})}});await settle();
+  assert.equal(c.element('geography-filter').hidden,false);assert.equal(c.element('advanced-filters').hidden,false);
+  c.requests.at(-1).resolve({...dashboard('Noticias'),initial:true,selection:{entity:'BBVA',from:'2026-10-01',to:'2026-10-31'}});await settle();
+  assert.equal(c.form.elements.from.value,'2026-10-01');assert.equal(c.form.elements.to.value,'2026-10-31');
+  await c.element('.nav').listeners.click({target:{closest:()=>({dataset:{view:'radar'}})}});await settle();
+  assert.equal(c.form.elements.entity.value,'Santander');assert.equal(c.form.elements.from.value,'');
+  const count=c.requests.length;c.element('map-panel').listeners.click({target:{closest:()=>({dataset:{country:'México'}})}});
+  assert.equal(c.requests.length,count+1);assert.equal(c.requests.at(-1).query.view,'news');assert.equal(c.requests.at(-1).query.from,'2026-10-01');
+  await c.element('.nav').listeners.click({target:{closest:()=>({dataset:{view:'briefing'}})}});await settle();
+  assert.equal(c.element('from-filter').hidden,true);assert.equal(c.element('to-filter').hidden,true);
+});
+
+test('abrir Noticias desde el mapa por primera vez conserva las fechas iniciales del mes',async()=>{
+ const c=client();c.requests[0].resolve({...dashboard('Inicial'),initial:true,selection:{segment:'Empresas e instituciones'},defaults:{entity:'BBVA',segment:'Empresas e instituciones',from:'2026-10-01',to:'2026-10-31'}});await settle();
+ const count=c.requests.length;c.element('map-panel').listeners.click({target:{closest:()=>({dataset:{country:'México'}})}});
+ assert.equal(c.requests.length,count+1);assert.equal(c.requests.at(-1).query.country,'México');assert.equal(c.requests.at(-1).query.from,'2026-10-01');assert.equal(c.requests.at(-1).query.to,'2026-10-31');
 });

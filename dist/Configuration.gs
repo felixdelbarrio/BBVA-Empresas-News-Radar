@@ -67,7 +67,7 @@ function validateConfiguration_(config){
   }
   if(typeof config.settings.unclassifiedTopic!=='string'||!config.settings.unclassifiedTopic.trim())throw Error('Indica la etiqueta para noticias sin tema.');
   if(new Set(config.geographies.map(row=>row.code)).size!==config.geographies.length||new Set(config.geographies.map(row=>row.mapId)).size!==config.geographies.length)throw Error('Código de país duplicado.');
-  if(typeof config.settings.unknownCountry!=='string'||!config.settings.unknownCountry.trim()||config.settings.unknownCountry.length>100)throw Error('Define el ámbito predeterminado de los RSS.');
+  if(typeof config.settings.unknownCountry!=='string'||!config.settings.unknownCountry.trim()||config.settings.unknownCountry.length>100)throw Error('Define la geografía predeterminada de los RSS.');
   if(new Set(config.feeds.map(row=>row.id)).size!==config.feeds.length||new Set(config.feeds.map(row=>canonicalUrl_(row.url))).size!==config.feeds.length)throw Error('Fuente RSS duplicada.');
   return config;
 }

@@ -1,6 +1,6 @@
 import { $, message } from "../core/dom.js";
 import config from "../config.js";
-function createNavigation({ isAdmin, track, onAdministration, onSubscriptions }) {
+function createNavigation({ isAdmin, track, onAdministration, onSubscriptions, onSelection }) {
   let current = "radar";
   async function show(view) {
     if (!(view in config.views) || view === "administration" && !isAdmin()) return;
@@ -20,6 +20,7 @@ function createNavigation({ isAdmin, track, onAdministration, onSubscriptions })
       else button.removeAttribute("aria-current");
     });
     try{
+      if(["radar","news","briefing"].includes(view))onSelection(view);
       if (view === "administration") await onAdministration();
       if(view === "subscriptions")await onSubscriptions();
     }catch(error){message(error.message||String(error),true);track("error");}

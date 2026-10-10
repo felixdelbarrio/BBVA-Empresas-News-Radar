@@ -31,7 +31,7 @@
     ]
   },
   "geographies": {
-    "label": "Países y ámbitos",
+    "label": "Geografías",
     "help": "Código ISO de dos letras e identificador cartográfico ISO numérico de tres cifras. Ejemplo: España, ES, es, 724.",
     "fields": [
       [
@@ -173,7 +173,7 @@
       "retryMinutes": "Minutos entre reintentos",
       "pauseMinutes": "Minutos de pausa",
       "maxSubscriptions": "Máximo de selecciones por usuario",
-      "unknownCountry": "Ámbito predeterminado de un RSS sin país",
+      "unknownCountry": "Geografía predeterminado de un RSS sin país",
       "defaultPeriodicity": "Periodicidad inicial (monthly, weekly, daily)",
       "newsletterEnabled": "Activar entrega de newsletters",
       "newsletterBatch": "Máximo de destinatarios por ejecución",
