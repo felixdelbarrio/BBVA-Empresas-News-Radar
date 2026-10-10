@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>News Radar · BBVA Empresas</title>
+<?!= include_('Tokens'); ?><?!= include_('Styles'); ?>
+</head><body>
+<a class="skip" href="#main">Ir al contenido</a>
+{{Sidebar}}{{Navigation}}
+<main class="main" id="main"><div id="preview-banner" class="preview-banner" hidden>Vista previa local · instantánea de fuentes RSS · automatización disponible al instalar en Google</div>
+<header class="topbar"><div><p class="eyebrow">BANCA DE EMPRESAS E INSTITUCIONES</p><h1 id="page-title">Radar</h1></div><div class="actions"><button class="button mobile-filter-button" id="open-filters" type="button">{{IconFilter}} Filtros</button><span class="status"><span class="status-dot" aria-hidden="true"></span><span id="daily-status">Comprobando automatización</span></span><button class="button" id="export">Exportar selección ↗</button></div></header>
+<div class="content"><div id="message" class="message" role="status" aria-live="polite" hidden></div><div id="loading" class="loading" role="status">Cargando el radar…</div>
+
+{{RadarView}}
+{{NewsView}}
+{{BriefingView}}
+{{SubscriptionsView}}
+{{AdministrationView}}
+<p class="small muted app-footer">Se registra tu correo corporativo y eventos de uso para medir adopción. Datos visibles solo al administrador; conservación máxima de <span id="retention-days"></span> días y <span id="event-limit"></span> eventos.</p>
+</div></main><dialog id="filters-dialog" class="filter-dialog" aria-label="Configurar filtros"><div class="dialog-header"><h2>Filtros</h2><button class="button" id="close-filters" type="button" aria-label="Cerrar filtros">✕</button></div><div id="mobile-filters"></div><button class="button primary" id="apply-filters" type="button">Ver resultados</button></dialog><?!= include_('Client'); ?></body></html>

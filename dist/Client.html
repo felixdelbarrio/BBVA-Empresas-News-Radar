@@ -1,0 +1,781 @@
+<script id="radar-client">
+(() => {
+  // src/client/core/dom.js
+  var $ = (id) => document.getElementById(id), escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]), validUrl = (value) => /^https:\/\//i.test(value || "") ? value : "", dateFormat = new Intl.DateTimeFormat("es-ES", { dateStyle: "short", timeStyle: "short" }), timezone;
+  function setTimezone(value) {
+    value && value !== timezone && (timezone = value, dateFormat = new Intl.DateTimeFormat("es-ES", { dateStyle: "short", timeStyle: "short", timeZone: value }));
+  }
+  var date = (value) => value ? dateFormat.format(new Date(value)) : "Sin ejecuciones";
+  function message(text, error = !1) {
+    $("message").textContent = text, $("message").classList.toggle("error", error), $("message").hidden = !1;
+  }
+  function metricCards(values) {
+    return values.map(([label, value, note]) => `<article class="metric"><p class="eyebrow">${escape(label)}</p><strong>${escape(value ?? "\u2014")}</strong><span class="small muted">${escape(note)}</span></article>`).join("");
+  }
+
+  // src/client/features/filter-panel.js
+  function createFilterPanel() {
+    let dialog = $("filters-dialog"), filters2 = $("filters-section"), mobile = window.matchMedia("(max-width:767px)");
+    function place() {
+      dialog.open && dialog.close(), $(mobile.matches ? "mobile-filters" : "desktop-filters").appendChild(filters2);
+    }
+    $("open-filters").addEventListener("click", () => dialog.showModal());
+    for (let id of ["close-filters", "apply-filters"]) $(id).addEventListener("click", () => dialog.close());
+    mobile.addEventListener("change", place), place();
+  }
+
+  // src/client/core/api.js
+  function call(method, ...args) {
+    return window.RADAR_PREVIEW ? window.RADAR_PREVIEW.call(method, ...args) : new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[method](...args));
+  }
+
+  // src/client/features/briefing.js
+  function downloadNewsletter(result) {
+    let url = URL.createObjectURL(new Blob([result.html], { type: "text/html;charset=utf-8" })), link = document.createElement("a");
+    link.href = url, link.download = "news-radar-newsletter.html", link.click(), setTimeout(() => URL.revokeObjectURL(url), 1e3), message("Novedades exportadas: " + result.count + (result.total > result.count ? " de " + result.total + ". Reduce los filtros para incluirlas todas." : "."));
+  }
+  function createBriefing({ query, run }) {
+    return $("newsletter-export").addEventListener("click", () => run(async () => downloadNewsletter(await call("exportNewsletter", { filters: query(), title: "Briefing de novedades" })), !1)), { render(data) {
+      let briefing2 = data.briefing || { total: 0, bySignal: [], items: [] };
+      $("briefing-count").textContent = "Novedades detectadas: " + briefing2.total, $("briefing-signals").innerHTML = briefing2.bySignal.map((row) => `<button type="button" class="signal-card" data-signal="${escape(row.name)}"><strong>${row.total}</strong><span>${escape(row.name)}</span></button>`).join(""), $("briefing-list").innerHTML = briefing2.items.map((row) => `<article class="panel novelty-card"><div class="news-meta">${row.senales.map((signal) => `<span class="badge">${escape(signal)}</span>`).join("")}<time>${escape(row.fecha)}</time></div><h3><a href="${escape(validUrl(row.url))}" target="_blank" rel="noopener noreferrer">${escape(row.titular)}</a></h3><p class="novelty-context">${escape(row.entidad)} \xB7 ${escape(row.tipo)} \xB7 ${escape(row.pais)} \xB7 ${escape(row.medio)}</p><p>${escape(row.extracto || "Consulta la fuente original para conocer la oferta y sus condiciones.")}</p><div class="novelty-use"><span class="eyebrow">SEGMENTO Y TEMA</span><p>${escape(row.segmentos.length ? row.segmentos.join(" \xB7 ") : "Segmento no identificado")} \xB7 ${escape(row.tema)}</p></div><a class="button" href="${escape(validUrl(row.url))}" target="_blank" rel="noopener noreferrer">Consultar anuncio \u2197</a></article>`).join("") || '<div class="panel empty"><h2>No hay novedades detectadas en esta selecci\xF3n.</h2><p>Ampl\xEDa entidades, segmentos o fechas. Una noticia sin se\xF1ales de producto permanece disponible en Noticias.</p></div>', $("briefing-limit").hidden = !briefing2.limited;
+    } };
+  }
+
+  // src/client/features/subscription-templates.js
+  var periods = { monthly: "Mensual", weekly: "Semanal", daily: "Diaria" }, labels = { type: "Tipo de entidad", entity: "Entidad", segment: "Segmento", country: "\xC1mbito", topic: "Tema", signal: "Novedad", source: "Fuente" }, selected = (value, current) => value === current ? " selected" : "";
+  function filterFields(catalogs, filters2) {
+    return Object.entries(catalogs).map(([key, values]) => `<label>${labels[key]}<select name="${key}"><option value="">Todos</option>${values.map((value) => `<option${selected(value, filters2[key])}>${escape(value)}</option>`).join("")}</select></label>`).join("");
+  }
+  function subscriptionForm(options, admin, row) {
+    let defaults = options.defaults, filters2 = row?.filtros || defaults.filters, primary = (key) => ["entity", "segment", "country"].includes(key);
+    return `<form data-subscription-form data-admin="${admin}" data-id="${escape(row?.id || "")}">
+    <div><p class="eyebrow">${row ? "EDITAR SUSCRIPCI\xD3N" : "NUEVA SUSCRIPCI\xD3N"}</p><h2>${row ? "Preferencias de recepci\xF3n" : "Contenido y periodicidad"}</h2><p class="small muted">${admin ? "Gestiona una suscripci\xF3n del dominio BBVA." : escape(options.email)}</p></div>
+    ${admin ? `<label>Correo corporativo<input name="email" type="email" required value="${escape(row?.correo || "")}" placeholder="nombre@bbva.com"></label>` : ""}
+    <div class="subscription-basics"><label>Nombre<input name="name" required maxlength="100" value="${escape(row?.nombre || defaults.name)}"></label><label>Periodicidad<select name="periodicity">${Object.entries(periods).map(([value, label]) => `<option value="${value}"${selected(value, row?.periodicidad || defaults.periodicity)}>${label}</option>`).join("")}</select></label></div>
+    <div class="subscription-fields">${filterFields(Object.fromEntries(Object.entries(options.catalogs).filter(([key]) => primary(key))), filters2)}</div>
+    <details class="subscription-more"><summary>M\xE1s preferencias <span>Tipo de entidad, tema, novedad, fuente y palabras clave</span></summary><div class="subscription-fields">${filterFields(Object.fromEntries(Object.entries(options.catalogs).filter(([key]) => !primary(key))), filters2)}</div><label>Palabras clave<input name="search" maxlength="160" value="${escape(filters2.search || "")}" placeholder="Opcional"></label></details>
+    <label class="subscription-active"><input name="active" type="checkbox"${row?.activa === !1 ? "" : " checked"}> Suscripci\xF3n activa</label>
+    <p class="small muted">La primera entrega corresponde al siguiente per\xEDodo completo despu\xE9s del alta. Recibir\xE1s un correo solo si se detectan novedades.</p>
+    <div class="actions"><button class="button primary" type="submit">${row ? "Guardar cambios" : admin ? "Crear suscripci\xF3n" : "Suscribirme"}</button>${admin ? '<button class="button" type="button" data-close-editor>Cancelar</button>' : ""}</div>
+  </form>`;
+  }
+  function subscriptionCards(rows, admin) {
+    return rows.map((row) => `<article class="panel selection-card"><div class="news-meta"><span class="badge">${periods[row.periodicidad]}</span><span class="status-pill" data-state="${row.activa ? "positive" : ""}">${row.activa ? "Activa" : "Pausada"}</span></div><h3>${escape(row.nombre)}</h3>${admin ? `<p>${escape(row.correo)}</p>` : ""}<div class="subscription-summary"><p class="small">${escape(Object.values(row.filtros).filter(Boolean).join(" \xB7 ") || "Todo el sector")}</p><p class="small muted">${row.filtros.country ? "" : "Todos los \xE1mbitos \xB7 "}Novedades del canal</p></div><p class="small muted">${escape(row.ultimaEntrega ? "\xDAltimo intento: " + row.ultimaEntrega.estado + " \xB7 " + row.ultimaEntrega.desde + " / " + row.ultimaEntrega.hasta : "Sin entregas registradas")}${row.nextDelivery ? " \xB7 Disponible desde " + escape(row.nextDelivery) : ""}</p><div class="actions"><button class="button" data-action="edit" data-id="${escape(row.id)}">Editar</button>${admin ? "" : `<button class="button" data-action="export" data-id="${escape(row.id)}">Vista previa</button><button class="button" data-action="apply" data-id="${escape(row.id)}">Ver noticias</button><button class="button" data-action="delete" data-id="${escape(row.id)}">Dar de baja</button>`}</div></article>`).join("") || `<div class="panel empty"><h3>${admin ? "Sin suscripciones" : "No tienes suscripciones"}</h3><p>${admin ? "Las altas del equipo aparecer\xE1n aqu\xED. Puedes crear una manualmente." : "Completa el formulario para recibir novedades por correo."}</p></div>`;
+  }
+
+  // src/client/features/subscriptions.js
+  function createSubscriptions({ run, onApply }) {
+    let options, own = [], all = [], editorId = (admin) => admin ? "admin-subscription-editor" : "personal-editor";
+    function edit(admin, row) {
+      let target = $(editorId(admin));
+      target.hidden = !1, target.innerHTML = subscriptionForm(options, admin, row);
+    }
+    async function open(admin = !1) {
+      let [settings, rows] = await Promise.all([call("getNewsletterOptions"), call(admin ? "getAdminSubscriptions" : "getSubscriptions")]);
+      options = settings, admin ? (all = rows, $("subscribers-count").textContent = new Set(rows.map((r) => r.correo)).size + " suscriptores \xB7 " + rows.length + " suscripciones", $("admin-subscriptions-list").innerHTML = subscriptionCards(rows, !0)) : (own = rows, $("subscriptions-count").textContent = rows.length + " suscripciones \xB7 " + rows.filter((row) => row.activa).length + " activas", $("subscriptions-list").innerHTML = subscriptionCards(rows, !1), $("newsletter-delivery-status").textContent = options.enabled ? "Entrega peri\xF3dica activa. Recibir\xE1s \xFAnicamente las novedades de tu selecci\xF3n." : "Puedes guardar tu suscripci\xF3n. El administrador todav\xEDa debe activar la entrega."), edit(admin), admin && ($(editorId(admin)).hidden = !0), admin || ($("newsletter-default-period").textContent = periods[options.defaults.periodicity] + " por defecto");
+    }
+    for (let admin of [!1, !0]) {
+      let target = $(editorId(admin));
+      target.addEventListener("click", (event) => {
+        event.target.closest("[data-close-editor]") && (target.hidden = !0);
+      }), target.addEventListener("submit", (event) => {
+        event.preventDefault();
+        let form = event.target, data = new FormData(form), filters2 = {};
+        for (let key of [...Object.keys(options.catalogs), "search"]) filters2[key] = String(data.get(key) || "");
+        run(async () => {
+          message(await call(admin ? "saveAdminSubscription" : "saveSubscription", { id: form.dataset.id || void 0, email: data.get("email"), name: data.get("name"), periodicity: data.get("periodicity"), active: data.has("active"), filters: filters2 })), await open(admin);
+        }, !1);
+      }), $(admin ? "new-admin-subscription" : "new-subscription").addEventListener("click", () => edit(admin)), $(admin ? "admin-subscriptions-list" : "subscriptions-list").addEventListener("click", (event) => {
+        let button = event.target.closest("[data-action]");
+        if (!button) return;
+        let row = (admin ? all : own).find((r) => r.id === button.dataset.id);
+        row && (button.dataset.action === "edit" && edit(admin, row), button.dataset.action === "apply" && onApply(row.query), button.dataset.action === "export" && run(async () => downloadNewsletter(await call("exportNewsletter", { subscriptionId: row.id })), !1), button.dataset.action === "delete" && run(async () => {
+          message(await call("deleteSubscription", row.id)), await open();
+        }, !1));
+      });
+    }
+    return { open };
+  }
+
+  // src/client/features/newsletter-delivery.js
+  function createNewsletterDelivery({ run }) {
+    function feedback(text, error = !1) {
+      let target = $("newsletter-test-result");
+      target.hidden = !1, target.textContent = text, target.classList.toggle("error", error);
+    }
+    async function open() {
+      let status = await call("getNewsletterDeliveryStatus");
+      $("newsletter-sender").textContent = status.name + " <" + status.address + ">", $("newsletter-checks").innerHTML = [["Remitente", status.available ? "Verificado" : "Pendiente"], ["Entrega", status.enabled ? "Activada" : "Desactivada"], ["Programaci\xF3n", status.scheduled ? "Instalada" : "Sin activador"]].map(([name, value]) => `<div class="delivery-check"><strong>${name}</strong><span>${value}</span></div>`).join(""), $("newsletter-sender-status").textContent = status.available ? "Gmail permite usar el remitente configurado." : status.error, $("newsletter-budget").textContent = status.remaining + " env\xEDos disponibles dentro del l\xEDmite configurado de 24 horas.";
+      let last = status.last;
+      $("newsletter-history").innerHTML = last ? `<strong>\xDAltimo intento \xB7 ${escape(date(last.fecha))}</strong><span>${escape(last.estado)} \xB7 ${escape(last.correo)}</span><span>${escape(last.detalle)}</span>` : "<span>No hay intentos de env\xEDo registrados.</span>";
+    }
+    function execute(method, describe) {
+      run(async () => {
+        feedback("Procesando solicitud\u2026");
+        try {
+          let result = await call(method);
+          feedback(describe(result), result.state === "error");
+        } catch (error) {
+          feedback(error.message || String(error), !0);
+        }
+        await open();
+      }, !1);
+    }
+    return $("validate-newsletter-sender").addEventListener("click", () => run(open, !1)), $("test-newsletter").addEventListener("click", () => execute("sendNewsletterTest", (result) => `Gmail ha aceptado la prueba para ${result.recipient}. Remitente: ${result.sender}. Gmail ID: ${result.messageId}. Incluye ${result.count} novedades del ${result.from} al ${result.to}. Si no aparece en la bandeja de entrada, revisa Spam y la cuarentena de Workspace; la aceptaci\xF3n no confirma la recepci\xF3n.`)), $("install-newsletter").addEventListener("click", () => execute("installNewsletterSchedule", (result) => result)), $("send-pending-newsletters").addEventListener("click", () => execute("sendPendingNewsletters", (result) => result.state === "no_due" ? "No hay entregas pendientes. Las suscripciones nuevas comienzan en el siguiente cierre de su per\xEDodo." : result.state === "busy" ? "Hay otro env\xEDo en ejecuci\xF3n." : result.state === "limit" ? "Se ha alcanzado el l\xEDmite de env\xEDos en 24 horas." : `${result.accepted} correos aceptados por Gmail \xB7 ${result.empty} selecciones sin novedades \xB7 ${result.pending} pendientes.${result.error ? " " + result.error : ""}`)), { open };
+  }
+
+  // assets/admin-schema.json
+  var admin_schema_default = {
+    entities: {
+      label: "Entidades",
+      help: "Lista de seguimiento editable. El tipo es una categor\xEDa editorial, no acredita licencia bancaria. Alias y pa\xEDses: separados por punto y coma.",
+      fields: [
+        [
+          "name",
+          "Nombre",
+          "text"
+        ],
+        [
+          "type",
+          "Tipo de entidad",
+          "text"
+        ],
+        [
+          "aliases",
+          "Alias de b\xFAsqueda",
+          "list"
+        ],
+        [
+          "countries",
+          "Pa\xEDses del cat\xE1logo",
+          "list"
+        ],
+        [
+          "enabled",
+          "Activa",
+          "boolean"
+        ]
+      ]
+    },
+    geographies: {
+      label: "Pa\xEDses y \xE1mbitos",
+      help: "C\xF3digo ISO de dos letras e identificador cartogr\xE1fico ISO num\xE9rico de tres cifras. Ejemplo: Espa\xF1a, ES, es, 724.",
+      fields: [
+        [
+          "name",
+          "Nombre",
+          "text"
+        ],
+        [
+          "searchName",
+          "Nombre del pa\xEDs en b\xFAsquedas",
+          "text"
+        ],
+        [
+          "code",
+          "C\xF3digo ISO",
+          "text"
+        ],
+        [
+          "language",
+          "Idioma de Google News",
+          "text"
+        ],
+        [
+          "mapId",
+          "ISO num\xE9rico del mapa",
+          "text"
+        ],
+        [
+          "enabled",
+          "Activo",
+          "boolean"
+        ]
+      ]
+    },
+    topics: {
+      label: "Temas",
+      help: "La primera coincidencia determina el tema. Los t\xE9rminos admiten ra\xEDces de palabras y se separan por punto y coma. Se ignoran may\xFAsculas y acentos.",
+      fields: [
+        [
+          "name",
+          "Tema",
+          "text"
+        ],
+        [
+          "terms",
+          "T\xE9rminos o ra\xEDces",
+          "list"
+        ],
+        [
+          "enabled",
+          "Activo",
+          "boolean"
+        ]
+      ]
+    },
+    segments: {
+      label: "Segmentos",
+      help: "Una noticia puede pertenecer a varios segmentos. Sin coincidencia se mantiene sin segmento; no se atribuye por el nombre del banco.",
+      fields: [
+        [
+          "name",
+          "Segmento",
+          "text"
+        ],
+        [
+          "terms",
+          "T\xE9rminos o ra\xEDces",
+          "list"
+        ],
+        [
+          "enabled",
+          "Activo",
+          "boolean"
+        ]
+      ]
+    },
+    signals: {
+      label: "Novedades y lanzamientos",
+      help: "Se exige se\xF1al y contexto de producto. headline busca la se\xF1al solo en el titular; fullText incluye el extracto. Las exclusiones siempre se aplican al titular. Listas separadas por punto y coma.",
+      fields: [
+        [
+          "name",
+          "Novedad",
+          "text"
+        ],
+        [
+          "terms",
+          "T\xE9rminos de se\xF1al",
+          "list"
+        ],
+        [
+          "context",
+          "Contexto requerido (opcional)",
+          "list"
+        ],
+        [
+          "exclude",
+          "Excluir si el titular contiene",
+          "list"
+        ],
+        [
+          "scope",
+          "Ubicaci\xF3n de la se\xF1al: headline o fullText",
+          "text"
+        ],
+        [
+          "enabled",
+          "Activa",
+          "boolean"
+        ]
+      ]
+    },
+    settings: {
+      label: "Operaci\xF3n y selecci\xF3n inicial",
+      help: "Los l\xEDmites se validan al guardar. Cambiar hora o zona requiere reactivar la programaci\xF3n diaria. Listas: separadas por punto y coma.",
+      labels: {
+        timezone: "Zona horaria",
+        windowDays: "Ventana de recopilaci\xF3n (d\xEDas)",
+        pageSize: "Noticias por p\xE1gina",
+        defaultEntity: "Entidad inicial (vac\xEDo: todas)",
+        defaultSegment: "Segmento inicial (vac\xEDo: todos)",
+        defaultTopic: "Tema inicial (vac\xEDo: todos)",
+        defaultCountry: "Pa\xEDs inicial (vac\xEDo: todos)",
+        dailyHour: "Hora de recopilaci\xF3n (0\u201323)",
+        searchTerms: "T\xE9rminos de b\xFAsqueda de sector",
+        disabledSources: "IDs de fuentes de perfil desactivadas",
+        briefingLimit: "M\xE1ximo de novedades por newsletter",
+        unclassifiedTopic: "Etiqueta sin tema",
+        maxCustomFeeds: "M\xE1ximo de fuentes RSS",
+        maxFeedBytes: "M\xE1ximo de caracteres de feed",
+        maxItems: "M\xE1ximo de entradas por feed",
+        exportLimit: "M\xE1ximo de noticias exportadas",
+        newsReadLimit: "M\xE1ximo de noticias consultadas",
+        eventLimit: "M\xE1ximo de eventos conservados",
+        retentionDays: "Conservaci\xF3n de eventos (d\xEDas)",
+        trendPoints: "M\xE1ximo de intervalos de gr\xE1fica",
+        trendSeries: "M\xE1ximo de series (incluye otras)",
+        collectionBatch: "Fuentes por lote",
+        retryMinutes: "Minutos entre reintentos",
+        pauseMinutes: "Minutos de pausa",
+        maxSubscriptions: "M\xE1ximo de selecciones por usuario",
+        unknownCountry: "\xC1mbito predeterminado de un RSS sin pa\xEDs",
+        defaultPeriodicity: "Periodicidad inicial (monthly, weekly, daily)",
+        newsletterEnabled: "Activar entrega de newsletters",
+        newsletterBatch: "M\xE1ximo de destinatarios por ejecuci\xF3n",
+        defaultNewsletterName: "Nombre inicial de la newsletter",
+        newsletterSender: "Remitente verificado en Gmail (correo del grupo)",
+        newsletterSenderName: "Nombre visible del remitente",
+        newsletterDailyLimit: "L\xEDmite de newsletters en 24 horas",
+        newsletterAppUrl: "URL publicada de News Radar (gesti\xF3n de suscripciones)"
+      },
+      groups: [
+        {
+          label: "Newsletter",
+          keys: [
+            "newsletterEnabled",
+            "newsletterSender",
+            "newsletterSenderName",
+            "newsletterAppUrl",
+            "defaultPeriodicity",
+            "defaultNewsletterName",
+            "newsletterBatch",
+            "newsletterDailyLimit",
+            "maxSubscriptions",
+            "briefingLimit"
+          ]
+        },
+        {
+          label: "Selecci\xF3n inicial",
+          keys: [
+            "defaultEntity",
+            "defaultSegment",
+            "defaultTopic",
+            "defaultCountry"
+          ]
+        },
+        {
+          label: "Recopilaci\xF3n",
+          keys: [
+            "timezone",
+            "dailyHour",
+            "windowDays",
+            "searchTerms",
+            "disabledSources",
+            "collectionBatch",
+            "retryMinutes",
+            "pauseMinutes"
+          ]
+        },
+        {
+          label: "Visualizaci\xF3n",
+          keys: [
+            "pageSize",
+            "trendPoints",
+            "trendSeries",
+            "unknownCountry",
+            "unclassifiedTopic"
+          ]
+        },
+        {
+          label: "Recursos y conservaci\xF3n",
+          keys: [
+            "maxCustomFeeds",
+            "maxFeedBytes",
+            "maxItems",
+            "exportLimit",
+            "newsReadLimit",
+            "eventLimit",
+            "retentionDays"
+          ]
+        }
+      ]
+    }
+  };
+
+  // src/client/features/configuration.js
+  function createConfiguration({ run }) {
+    let config, revision, category = "entities";
+    async function fetchConfig() {
+      let snapshot = await call("getConfiguration");
+      config = snapshot.config, revision = snapshot.revision;
+    }
+    function readFields() {
+      if (config)
+        if (category === "settings")
+          for (let input of $("catalog-fields").querySelectorAll("[data-key]")) config.settings[input.dataset.key] = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value) : input.dataset.list === "true" ? input.value.split(";").map((value) => value.trim()).filter(Boolean) : input.value;
+        else config[category] = [...$("catalog-fields").children].map((row) => Object.fromEntries([...row.querySelectorAll("[data-key]")].map((input) => [input.dataset.key, input.type === "checkbox" ? input.checked : input.dataset.list === "true" ? input.value.split(";").map((value) => value.trim()).filter(Boolean) : input.value])));
+    }
+    function fields(fields2, row) {
+      return fields2.map(([key, label, type]) => `<label>${escape(label)}${type === "boolean" ? `<input type="checkbox" data-key="${key}" ${row[key] ? "checked" : ""}>` : `<input data-key="${key}" ${type === "list" ? 'data-list="true"' : ""} type="${type === "number" ? "number" : "text"}" value="${escape(type === "list" ? (row[key] || []).join("; ") : row[key] ?? "")}">`}</label>`).join("");
+    }
+    function render() {
+      let meta = admin_schema_default[category];
+      $("catalog-help").textContent = meta.help, $("catalog-add").hidden = category === "settings", $("catalog-fields").innerHTML = category === "settings" ? admin_schema_default.settings.groups.map((group) => `<fieldset class="catalog-group"><legend>${escape(group.label)}</legend><div class="catalog-settings">${group.keys.map((key) => {
+        let value = config.settings[key];
+        return fields([[key, admin_schema_default.settings.labels[key], Array.isArray(value) ? "list" : typeof value == "number" ? "number" : typeof value == "boolean" ? "boolean" : "text"]], config.settings);
+      }).join("")}</div></fieldset>`).join("") : config[category].map((row) => `<details class="catalog-row" ${row.name ? "" : "open"}><summary><strong>${escape(row.name || "Nueva entrada")}</strong><span>${escape(row.type || "")} \xB7 ${row.enabled ? "Activa" : "Inactiva"}</span></summary><div class="catalog-grid">${fields(meta.fields, row)}</div><div class="actions"><button type="button" class="button" data-move="-1">Subir</button><button type="button" class="button" data-move="1">Bajar</button><button type="button" class="button" data-remove>Eliminar</button></div></details>`).join("");
+    }
+    return $("catalog-category").innerHTML = Object.entries(admin_schema_default).map(([key, meta]) => `<option value="${key}">${escape(meta.label)}</option>`).join(""), $("catalog-category").addEventListener("change", () => {
+      readFields(), category = $("catalog-category").value, render();
+    }), $("catalog-fields").addEventListener("click", (event) => {
+      let remove = event.target.closest("[data-remove]");
+      remove && remove.closest(".catalog-row").remove();
+      let move = event.target.closest("[data-move]");
+      if (move) {
+        let row = move.closest(".catalog-row"), index = [...$("catalog-fields").children].indexOf(row), target = index + Number(move.dataset.move);
+        readFields(), target >= 0 && target < config[category].length && ([config[category][index], config[category][target]] = [config[category][target], config[category][index]], render());
+      }
+    }), $("catalog-add").addEventListener("click", () => {
+      readFields(), config[category].push(Object.fromEntries(admin_schema_default[category].fields.map(([key, , type]) => [key, type === "list" ? [] : type === "boolean" ? !0 : ""]))), render();
+    }), $("catalog-form").addEventListener("submit", (event) => {
+      event.preventDefault(), readFields(), run(async () => {
+        message(await call("saveConfiguration", { config, revision })), await fetchConfig(), render();
+      });
+    }), $("catalog-reload").addEventListener("click", () => run(async () => {
+      await fetchConfig(), render();
+    }, !1)), { async open() {
+      config || (await fetchConfig(), render());
+    } };
+  }
+
+  // src/client/features/trend-chart.js
+  var dateFormat2 = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", timeZone: "UTC" });
+  function trendChart({ buckets, series }, availableWidth = 900) {
+    if (!buckets.length) return '<div class="chart-empty"><span class="empty-orbit" aria-hidden="true">\u25CE</span><p>La evoluci\xF3n aparecer\xE1 cuando haya publicaciones en esta selecci\xF3n.</p></div>';
+    let width = Math.max(320, Math.min(900, availableWidth || 900)), height = 260, left = 38, right = 20, top = 24, bottom = 42, max = Math.max(1, ...series.flatMap((row) => row.values)), ceiling = Math.max(4, Math.ceil(max / 4) * 4), x = (index) => left + (buckets.length === 1 ? 0.5 : index / (buckets.length - 1)) * (width - left - right), y = (value) => height - bottom - value / ceiling * (height - top - bottom), ticks = Array.from({ length: 5 }, (_, i) => {
+      let value = ceiling * i / 4;
+      return `<line x1="${left}" x2="${width - right}" y1="${y(value)}" y2="${y(value)}" class="chart-grid"/><text x="${left - 12}" y="${y(value) + 4}" text-anchor="end">${value}</text>`;
+    }).join(""), labels2 = [.../* @__PURE__ */ new Set([0, Math.floor((buckets.length - 1) / 2), buckets.length - 1])].map((i) => `<text x="${x(i)}" y="${height - 12}" text-anchor="${i === 0 ? "start" : i === buckets.length - 1 ? "end" : "middle"}">${dateFormat2.format(new Date(buckets[i]))}</text>`).join(""), lines = series.map((row, i) => {
+      let points = row.values.map((value, index) => [x(index), y(value)]), path = points.map(([px, py], index) => (index ? "L" : "M") + px.toFixed(1) + "," + py.toFixed(1)).join(" "), color = "var(--chart-series-" + (i + 1) + ")";
+      return (series.length === 1 ? `<path d="${path} L${x(buckets.length - 1)},${y(0)} L${x(0)},${y(0)} Z" class="chart-area"/>` : "") + `<path d="${path}" stroke="${color}" class="chart-line"><title>${escape(row.entity)} \xB7 ${row.total} publicaciones</title></path>` + points.map(([px, py], j) => `<circle cx="${px}" cy="${py}" r="${buckets.length > 30 ? 2 : 4}" fill="${color}"><title>${escape(row.entity)} \xB7 ${buckets[j]} \xB7 ${row.values[j]} publicaciones</title></circle>`).join("");
+    }).join(""), legend = series.map((row, i) => `<span><i style="background:var(--chart-series-${i + 1})"></i>${escape(row.entity)}<strong>${row.total}</strong></span>`).join("");
+    return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Evoluci\xF3n del n\xFAmero de publicaciones por entidad"><title>Evoluci\xF3n de publicaciones por entidad</title>${ticks}${labels2}${lines}</svg><div class="chart-legend">${legend}</div>`;
+  }
+
+  // src/client/features/radar.js
+  function createRadar({ onCountry, onEntity, onNews }) {
+    let signature = "", geographySignature = "", trend, chartWidth = 0;
+    function renderTrend(width) {
+      !trend || !width || (chartWidth = width, $("trend-chart").innerHTML = trendChart(trend, width));
+    }
+    return new ResizeObserver((entries) => {
+      let width = entries[0].contentRect.width;
+      width && Math.abs(width - chartWidth) > 1 && renderTrend(width);
+    }).observe($("trend-chart")), $("map-panel").addEventListener("click", (event) => {
+      let target = event.target.closest("[data-country]");
+      target && onCountry(target.dataset.country);
+    }), $("world-map").addEventListener("keydown", (event) => {
+      if (["Enter", " "].includes(event.key)) {
+        let target = event.target.closest("[data-country]");
+        target && (event.preventDefault(), onCountry(target.dataset.country));
+      }
+    }), $("entity-ranking").addEventListener("click", (event) => {
+      let target = event.target.closest("[data-entity]");
+      target && onEntity(target.dataset.entity);
+    }), $("radar-open-news").addEventListener("click", onNews), { render(data) {
+      let geography = JSON.stringify(data.geographies || []);
+      if (geography !== geographySignature) {
+        geographySignature = geography;
+        let scopes = new Map((data.geographies || []).map((row) => [Number(row.mapId), row.name]));
+        $("world-map").querySelectorAll("[data-code]").forEach((node) => {
+          let country = scopes.get(Number(node.dataset.code)), marker = node.classList.contains("map-marker");
+          country ? (node.dataset.country = country, node.removeAttribute("aria-hidden"), node.setAttribute("role", "button"), node.setAttribute("tabindex", marker ? "0" : "-1"), marker && (node.style.display = "")) : (delete node.dataset.country, node.setAttribute("aria-hidden", "true"), node.removeAttribute("role"), node.removeAttribute("tabindex"), marker && (node.style.display = "none")), node.removeAttribute("hidden");
+        });
+      }
+      let radar2 = data.radar, next = JSON.stringify([radar2, data.countries, geography]);
+      if (next === signature) return;
+      signature = next, $("metrics").innerHTML = metricCards([["Publicaciones", data.stats.news, "En la selecci\xF3n"], ["Entidades", data.stats.entities, "Con presencia en medios"], ["Medios", data.stats.sources, "Editores distintos"], ["\xC1mbitos", data.stats.countries, "Con publicaciones en la selecci\xF3n"]]), $("radar-focus").textContent = radar2.ranking.length === 1 ? radar2.ranking[0].entity : "Panorama de entidades", $("radar-headline").textContent = radar2.summary.news ? radar2.summary.news + " publicaciones en seguimiento" : "Sin publicaciones en la selecci\xF3n", $("radar-context").textContent = radar2.summary.news ? "Distribuci\xF3n geogr\xE1fica, entidades mencionadas y evoluci\xF3n de las publicaciones recopiladas." : "Ampl\xEDa los filtros para descubrir nuevas publicaciones y su distribuci\xF3n.", $("radar-latest").textContent = radar2.latest || "Sin publicaciones", $("map-selection").textContent = radar2.ranking.length === 1 ? radar2.ranking[0].entity : "Todas las entidades de la selecci\xF3n";
+      let max = Math.max(1, ...radar2.geographies.map((area) => area.total)), areas = new Map(radar2.geographies.map((area) => [area.country, area]));
+      $("world-map").querySelectorAll("[data-country]").forEach((node) => {
+        let area = areas.get(node.dataset.country), count = area?.total || 0, level = count ? Math.ceil(count / max * 4) : 0;
+        node.style.setProperty("--map-fill", "var(--heat-" + level + ")"), node.setAttribute("aria-label", node.dataset.country + ": " + count + " publicaciones. Filtrar por este \xE1mbito.");
+        let title = node.querySelector("title");
+        title && (title.textContent = node.dataset.country + " \xB7 " + count + " publicaciones" + (area ? " \xB7 " + area.entities.map((row) => row.entity + ": " + row.count).join(", ") : ""));
+      });
+      let countries = (data.geographies || []).map((row) => row.name);
+      $("map-countries").innerHTML = countries.map((country) => {
+        let count = areas.get(country)?.total || 0;
+        return `<button type="button" class="geo-row" data-country="${escape(country)}"><span>${escape(country)}</span><span class="geo-count">${count}</span><span class="geo-track"><span style="width:${count / max * 100}%"></span></span></button>`;
+      }).join(""), $("map-note").textContent = radar2.unlocated ? radar2.unlocated + " publicaciones sin \xE1mbito conocido, excluidas del mapa." : "Todas las publicaciones de la selecci\xF3n tienen un \xE1mbito conocido.", trend = radar2.trend, renderTrend($("trend-chart").clientWidth || 900), $("trend-period").textContent = radar2.trend.buckets.length ? radar2.trend.from + " \u2014 " + radar2.trend.to : "Sin publicaciones", $("trend-note").textContent = radar2.trend.intervalDays > 1 ? "Volumen agrupado en intervalos de " + radar2.trend.intervalDays + " d\xEDas." : "N\xFAmero de publicaciones por d\xEDa, incluidos los d\xEDas sin noticias.", $("entity-ranking").innerHTML = radar2.ranking.length ? radar2.ranking.slice(0, 6).map((row, i) => `<button type="button" class="ranking-row" data-entity="${escape(row.entity)}"><span class="ranking-index">${String(i + 1).padStart(2, "0")}</span><span class="ranking-name">${escape(row.entity)}<span class="ranking-track"><span style="width:${row.total / Math.max(1, radar2.summary.news) * 100}%"></span></span></span><strong>${row.total}</strong></button>`).join("") : '<p class="muted">Las entidades aparecer\xE1n al ampliar tu selecci\xF3n.</p>', $("ranking-note").textContent = radar2.ranking.length > 6 ? "Se muestran las seis entidades con m\xE1s publicaciones." : "Selecciona una entidad para explorar su actualidad.", $("radar-publisher").textContent = radar2.topPublisher || "Sin publicaciones";
+    } };
+  }
+
+  // assets/app-config.json
+  var app_config_default = {
+    views: {
+      radar: "Radar",
+      news: "Noticias",
+      briefing: "Novedades",
+      subscriptions: "Mi newsletter",
+      administration: "Administraci\xF3n"
+    },
+    adminViews: {
+      configuration: "Configuraci\xF3n de negocio",
+      sources: "Fuentes y programaci\xF3n",
+      audit: "Auditor\xEDa",
+      telemetry: "Telemetr\xEDa",
+      adoption: "Adopci\xF3n",
+      subscribers: "Suscripciones"
+    }
+  };
+
+  // src/client/config.js
+  var stdin_default = app_config_default;
+
+  // src/client/features/activity-chart.js
+  function activityChart(days) {
+    if (!days.length) return '<div class="note">No hay actividad diaria registrada en este per\xEDodo.</div>';
+    let maximum = Math.max(1, ...days.map((day) => day.users));
+    return `<div class="activity-chart" role="img" aria-label="Usuarios activos por d\xEDa">${days.map((day) => `<div class="activity-column" title="${escape(day.date)}: ${day.users} usuarios"><span>${day.users}</span><div class="activity-bar" style="--bar-height:calc(var(--activity-chart-height) * ${day.users / maximum})"></div><span>${escape(day.date.slice(5))}</span></div>`).join("")}</div>`;
+  }
+
+  // src/client/features/metrics.js
+  async function loadMetrics(view, isCurrent) {
+    try {
+      let data = await call(view === "adoption" ? "getAdoption" : "getTelemetry");
+      if (!isCurrent()) return;
+      view === "adoption" ? ($("adoption-metrics").innerHTML = metricCards([["DAU", data.dau, "Usuarios \xB7 24 horas"], ["WAU", data.wau, "Usuarios \xB7 7 d\xEDas"], ["MAU", data.mau, "Usuarios \xB7 30 d\xEDas"], ["Recurrentes", data.returning, "M\xE1s de una sesi\xF3n \xB7 30 d\xEDas"]]), $("adoption-note").textContent = data.sessions + " sesiones y " + data.events + " eventos en 30 d\xEDas. Incluye al administrador; sesiones identificadas por apertura del navegador. " + (data.limited ? "L\xEDmite de eventos alcanzado; m\xE9tricas parciales." : ""), $("adoption-body").innerHTML = data.users.map((u) => `<tr><td>${escape(u.correo)}</td><td>${escape(date(u.first))}</td><td>${escape(date(u.last))}</td><td>${u.sessions}</td><td>${u.actions}</td></tr>`).join("") || '<tr><td colspan="5">Sin actividad registrada.</td></tr>', $("adoption-daily").innerHTML = data.daily.map((d) => `<tr><td>${escape(d.date)}</td><td>${d.users}</td><td>${d.sessions}</td></tr>`).join("") || '<tr><td colspan="3">Sin actividad diaria registrada.</td></tr>', $("adoption-chart").innerHTML = activityChart(data.daily)) : ($("telemetry-metrics").innerHTML = metricCards([["Latencia p95", data.latencyP95 == null ? "\u2014" : data.latencyP95 + " ms", "Cargas \xB7 30 d\xEDas"], ["Errores cliente", data.clientErrors, "Eventos recibidos \xB7 30 d\xEDas"], ["Fuentes consultadas", data.collection.processed, "Recopilaci\xF3n actual"], ["Pendientes", data.collection.pending, "Fuentes por consultar"]]), $("telemetry-body").innerHTML = data.rows.map((r) => `<tr><td>${escape(date(r.fecha))}</td><td>${escape(r.operacion)}</td><td>${escape(r.duracion_ms)} ms</td><td>${escape(r.estado)}</td><td>${escape(r.detalle)}</td></tr>`).join("") || '<tr><td colspan="5">Sin telemetr\xEDa de operaci\xF3n.</td></tr>');
+    } catch (e) {
+      message(e.message, !0);
+    }
+  }
+
+  // src/client/features/audit.js
+  async function loadAudit() {
+    try {
+      let rows = await call("getAudit");
+      $("audit-body").innerHTML = rows.map((r) => `<tr><td>${escape(date(r.fecha))}</td><td>${escape(r.fuente)}</td><td>${escape(r.resultado)}</td><td>${escape(r.motivo)} ${validUrl(r.url) ? `<a href="${escape(r.url)}" target="_blank" rel="noopener noreferrer">Fuente \u2197</a>` : ""}</td></tr>`).join("") || '<tr><td colspan="4">Sin entradas de auditor\xEDa.</td></tr>';
+    } catch (e) {
+      message(e.message, !0);
+    }
+  }
+
+  // src/client/features/administration.js
+  function createAdministration({ isAdmin, track: track2, onConfiguration, onSubscribers }) {
+    let current = "configuration";
+    async function open(view = current) {
+      if (!(!isAdmin() || !(view in stdin_default.adminViews))) {
+        current = view, track2("vista");
+        for (let name of Object.keys(stdin_default.adminViews)) $(name + "-section").hidden = name !== view;
+        if ($("admin-tabs").querySelectorAll("[data-admin-view]").forEach((button) => {
+          button.setAttribute("aria-selected", String(button.dataset.adminView === view)), button.tabIndex = button.dataset.adminView === view ? 0 : -1;
+        }), view === "subscribers" && await onSubscribers(), view === "configuration") try {
+          await onConfiguration();
+        } catch (error) {
+          message(error.message || String(error), !0);
+        }
+        view === "audit" && await loadAudit(), (view === "telemetry" || view === "adoption") && await loadMetrics(view, () => current === view && !$("administration-section").hidden);
+      }
+    }
+    return $("admin-tabs").addEventListener("click", (event) => {
+      let button = event.target.closest("[data-admin-view]");
+      button && open(button.dataset.adminView).catch((error) => message(error.message, !0));
+    }), $("admin-tabs").addEventListener("keydown", (event) => {
+      let views = Object.keys(stdin_default.adminViews), index = views.indexOf(current);
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      let next = event.key === "Home" ? 0 : event.key === "End" ? views.length - 1 : (index + (["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : -1) + views.length) % views.length;
+      open(views[next]).catch((error) => message(error.message, !0)), $("admin-tabs").querySelector('[data-admin-view="' + views[next] + '"]').focus();
+    }), { open, get current() {
+      return current;
+    } };
+  }
+
+  // src/client/features/filters.js
+  function createFilters({ onInvalidate, onChange }) {
+    let form = $("filters"), page = 0;
+    function options(name, values) {
+      let el = form.elements[name], current = el.value;
+      current && !values.includes(current) && (values = [...values, current]);
+      let signature = JSON.stringify(values);
+      el.dataset.options !== signature && (el.dataset.options = signature, el.innerHTML = '<option value="">Todos</option>' + values.map((x) => "<option>" + escape(x) + "</option>").join(""), el.value = current || "");
+    }
+    let timer;
+    function filterChanged(event) {
+      clearTimeout(timer), page = 0, onInvalidate();
+      let from = form.elements.from.value, to = form.elements.to.value;
+      form.elements.to.setCustomValidity(from && to && from > to ? "La fecha hasta debe ser posterior o igual a la fecha desde." : ""), $("message").hidden = !0, event.type === "input" ? timer = setTimeout(onChange, 250) : onChange();
+    }
+    return form.addEventListener("input", filterChanged), form.addEventListener("change", filterChanged), form.addEventListener("reset", () => {
+      clearTimeout(timer), onInvalidate(), queueMicrotask(() => {
+        for (let name of [...form.elements].filter((input) => input.name).map((input) => input.name)) form.elements[name].value = "";
+        filterChanged({ type: "reset" });
+      });
+    }), form.addEventListener("submit", (event) => {
+      event.preventDefault(), filterChanged({ type: "submit" });
+    }), {
+      query: () => ({ ...Object.fromEntries(new FormData(form)), page }),
+      isValid: () => form.reportValidity(),
+      set: (name, value) => {
+        form.elements[name].value = value, filterChanged({ type: "change" });
+      },
+      apply: (query) => {
+        for (let input of form.elements) if (input.name) {
+          let value = query[input.name] || "";
+          value && input.tagName === "SELECT" && options(input.name, [value]), input.value = value;
+        }
+        filterChanged({ type: "change" });
+      },
+      setPage: (value) => page = value,
+      render: (data) => {
+        page = data.page;
+        for (let [name, key] of [["country", "countries"], ["entity", "entities"], ["source", "sources"], ["topic", "topics"], ["type", "types"], ["segment", "segments"], ["signal", "signals"]]) options(name, data[key] || []);
+        if (data.initial) for (let [name, value] of Object.entries(data.selection)) form.elements[name] && (form.elements[name].value = value);
+      }
+    };
+  }
+
+  // src/client/features/news.js
+  function renderNews(data) {
+    $("news-list").innerHTML = data.items.length ? data.items.map((n, index) => `<article class="news-item"><span class="news-index" aria-hidden="true">${String(data.page * data.pageSize + index + 1).padStart(2, "0")}</span><div><div class="news-meta"><span class="badge">${escape(n.tema)}</span><time datetime="${escape(n.fecha)}">${escape(n.fecha)}</time><span>${escape(n.pais)}</span><span>${escape(n.medio)}</span><span>${escape(n.tipo || "")}</span></div><h3><a href="${escape(validUrl(n.url))}" target="_blank" rel="noopener noreferrer">${escape(n.titular)}</a></h3><p>${escape(n.extracto || "El feed no proporciona un extracto. Consulta la publicaci\xF3n original.")}</p><div class="news-footer"><span class="muted">${escape([n.entidad, ...n.segmentos || [], n.fuente || n.medio].filter(Boolean).join(" \xB7 "))}</span><a href="${escape(validUrl(n.url))}" target="_blank" rel="noopener noreferrer">Abrir noticia \u2197</a></div></div></article>`).join("") : '<div class="panel empty"><p class="eyebrow">SIN RESULTADOS</p><h2>No hay noticias con estos filtros.</h2><p>Prueba otra entidad, cambia el \xE1mbito o pulsa \xABVer todo\xBB para ampliar la selecci\xF3n.</p></div>', $("result-count").textContent = data.total + " publicaciones", $("page-label").textContent = data.total ? "P\xE1gina " + (data.page + 1) + " de " + Math.ceil(data.total / data.pageSize) : "Sin resultados", $("previous").disabled = data.page === 0, $("next").disabled = (data.page + 1) * data.pageSize >= data.total;
+  }
+
+  // src/client/features/shell.js
+  function renderShell(data) {
+    $("last-run").textContent = date(data.lastRun);
+    let daily = data.daily ? "Diaria \xB7 " + data.preferences.dailyLabel : "Recopilaci\xF3n diaria desactivada";
+    $("daily-status").textContent = daily, $("daily-sidebar").textContent = daily, $("toggle-daily").textContent = data.daily ? "Desactivar recopilaci\xF3n diaria" : "Activar recopilaci\xF3n diaria", document.querySelectorAll("[data-admin]").forEach((el) => el.hidden = !data.admin), $("sheet-link").hidden = !0, data.admin && validUrl(data.sheetUrl) && ($("sheet-link").href = data.sheetUrl, $("sheet-link").hidden = !1);
+  }
+
+  // src/client/features/source-catalog.js
+  function createSourceCatalog() {
+    let feeds = [], enabled = /* @__PURE__ */ new Set(), page = 0, pageSize = 0;
+    function render() {
+      let term = $("source-search").value.trim().toLocaleLowerCase(), rows = feeds.filter((feed) => [feed.name, feed.entity, feed.country].join(" ").toLocaleLowerCase().includes(term)), pages = Math.max(1, Math.ceil(rows.length / pageSize));
+      page = Math.min(page, pages - 1), $("configured-sources-body").innerHTML = rows.slice(page * pageSize, (page + 1) * pageSize).map((feed) => `<tr><td><input type="checkbox" class="source-enabled" data-id="${escape(feed.id)}" aria-label="Activar ${escape(feed.name)}" ${enabled.has(feed.id) ? "checked" : ""}></td><td>${escape(feed.name)}</td><td>${escape(feed.country)}</td><td>${feed.kind === "profile" ? "Google News RSS" : "RSS del editor"}</td><td><a href="${escape(validUrl(feed.url))}" target="_blank" rel="noopener noreferrer">Abrir feed \u2197</a></td></tr>`).join("") || '<tr><td colspan="5">No hay fuentes con este criterio.</td></tr>', $("source-page").textContent = rows.length + " fuentes \xB7 p\xE1gina " + (page + 1) + " de " + pages, $("source-prev").disabled = page === 0, $("source-next").disabled = page >= pages - 1, $("configured-source-count").textContent = feeds.length + " fuentes configuradas \xB7 " + enabled.size + " activas";
+    }
+    return $("source-search").addEventListener("input", () => {
+      page = 0, render();
+    }), $("source-prev").addEventListener("click", () => {
+      page--, render();
+    }), $("source-next").addEventListener("click", () => {
+      page++, render();
+    }), $("configured-sources-body").addEventListener("change", (event) => {
+      let input = event.target;
+      input.matches(".source-enabled") && (input.checked ? enabled.add(input.dataset.id) : enabled.delete(input.dataset.id), $("configured-source-count").textContent = feeds.length + " fuentes configuradas \xB7 " + enabled.size + " activas");
+    }), { update(rows, size) {
+      feeds = rows, pageSize = size, enabled = new Set(rows.filter((row) => row.enabled).map((row) => row.id)), render();
+    }, selected: () => [...enabled] };
+  }
+
+  // src/client/features/sources.js
+  function createSources({ getData, run }) {
+    let catalog = createSourceCatalog(), busy = !1, signature = "";
+    function sourceFields(feeds) {
+      $("source-fields").innerHTML = feeds.map((f, i) => `<fieldset class="source"><legend>Fuente ${i + 1}</legend>${[["name", "Nombre"], ["url", "URL del feed RSS"], ["domain", "Dominio del editor"], ["entity", "Entidad"], ["country", "Pa\xEDs / alcance"]].map(([key, label]) => `<label class="${key === "url" ? "wide" : ""}">${label}<input data-key="${key}" value="${escape(f[key] || "")}" ${key === "url" ? 'type="url"' : ""} required></label>`).join("")}<label>Activa<input type="checkbox" data-key="enabled" ${f.enabled !== !1 ? "checked" : ""}></label><button class="button remove-source" type="button">Eliminar fuente</button></fieldset>`).join(""), $("sources-form").querySelectorAll("input,button").forEach((el) => el.disabled = !getData()?.admin || busy);
+    }
+    function currentFeeds() {
+      return [...$("source-fields").children].map((el) => Object.fromEntries([...el.querySelectorAll("[data-key]")].map((x) => [x.dataset.key, x.type === "checkbox" ? x.checked : x.value])));
+    }
+    function collectionText(status) {
+      return status.total ? status.processed + " de " + status.total + " consultas completadas; " + status.pending + " pendientes y " + status.failed + " con error. Las noticias se integran autom\xE1ticamente." : "Las fuentes est\xE1n activas. La pr\xF3xima recopilaci\xF3n las consultar\xE1 por lotes.";
+    }
+    return $("collect").addEventListener("click", () => run(async () => {
+      let result = await call("collectNow", document.querySelector('input[name="recovery-range"]:checked').value);
+      message(result.notice || result.added + " noticias nuevas. " + (result.pending ? result.pending + " consultas pendientes; la recuperaci\xF3n contin\xFAa autom\xE1ticamente." : "Recuperaci\xF3n completada.") + (result.errors.length ? " " + result.errors.join(" | ") : ""), result.errors.length > 0);
+    })), $("sources-form").addEventListener("submit", (e) => {
+      e.preventDefault(), run(async () => {
+        await call("saveFeeds", currentFeeds()), message("Fuentes guardadas.");
+      });
+    }), $("add-source").addEventListener("click", () => {
+      let feeds = currentFeeds();
+      if (feeds.length >= Number($("source-fields").dataset.max)) return message("M\xE1ximo " + $("source-fields").dataset.max + " fuentes RSS.", !0);
+      sourceFields([...feeds, { country: getData().preferences.unknownCountry }]);
+    }), $("source-fields").addEventListener("click", (e) => {
+      e.target.closest(".remove-source") && e.target.closest("fieldset").remove();
+    }), $("toggle-daily").addEventListener("click", () => run(async () => {
+      let enabled = getData().daily, result = await call(enabled ? "disableDaily" : "enableDaily");
+      message(enabled ? "Recopilaci\xF3n diaria desactivada." : result);
+    })), $("save-source-settings").addEventListener("click", () => run(async () => message(await call("saveSourceSettings", catalog.selected())))), $("retry-collection").addEventListener("click", () => run(async () => message(await call("retryCollectionErrors")))), { render(data) {
+      let next = JSON.stringify([data.feeds, data.configuredFeeds]);
+      next !== signature && (signature = next, sourceFields(data.feeds), $("source-fields").dataset.max = data.maxFeeds, $("source-limit").textContent = data.maxFeeds, catalog.update(data.configuredFeeds, data.pageSize)), $("source-schedule").textContent = data.schedule || "", $("collection-status").textContent = collectionText(data.collection), $("runs-body").innerHTML = data.runs.map((r) => `<tr><td>${escape(date(r.inicio))}</td><td>${escape(r.estado)}</td><td>${escape(r.evaluadas)}</td><td>${escape(r.nuevas)}</td><td>${escape(r.errores || "\u2014")}</td></tr>`).join("") || '<tr><td colspan="5">Sin ejecuciones registradas.</td></tr>';
+    }, setBusy(value) {
+      busy = value, $("sources-form").querySelectorAll("input,button").forEach((el) => el.disabled = busy || !getData()?.admin);
+    } };
+  }
+
+  // src/client/features/usage.js
+  function createUsage({ getView, isReady }) {
+    let session = crypto.randomUUID(), events = [];
+    function track2(event, duration = 0) {
+      events.push({ event, view: getView(), session, duration }), events.length > 20 && events.shift();
+    }
+    async function flush2() {
+      if (!events.length || !isReady()) return;
+      let batch = events.splice(0, 20);
+      try {
+        (await call("recordEvents", batch)).saved || events.unshift(...batch);
+      } catch {
+        events.unshift(...batch);
+      }
+      events.length > 20 && events.splice(0, events.length - 20);
+    }
+    return setInterval(flush2, 3e4), { track: track2, flush: flush2 };
+  }
+
+  // src/client/features/navigation.js
+  function createNavigation({ isAdmin, track: track2, onAdministration, onSubscriptions }) {
+    let current = "radar";
+    async function show(view) {
+      if (!(!(view in stdin_default.views) || view === "administration" && !isAdmin())) {
+        current = view, window.scrollTo({ top: 0, behavior: "auto" }), track2("vista");
+        for (let name of Object.keys(stdin_default.views)) $(name + "-section").hidden = name !== view;
+        $("filters-section").hidden = ["administration", "subscriptions"].includes(view), $("sidebar-context-title").textContent = view === "administration" ? "Gesti\xF3n de News Radar" : "Seguimiento personalizado", $("sidebar-context-copy").textContent = view === "administration" ? "Gestiona el contenido recopilado, las suscripciones y el funcionamiento de la aplicaci\xF3n." : "Las suscripciones tienen sus propios filtros. Cambiar la selecci\xF3n de noticias no modifica lo que recibes por correo.", $("sidebar-context").hidden = !["administration", "subscriptions"].includes(view), $("open-filters").hidden = ["administration", "subscriptions"].includes(view), $("export").hidden = ["administration", "subscriptions"].includes(view), $("page-title").textContent = stdin_default.views[view], document.querySelectorAll("[data-view]").forEach((button) => {
+          button.dataset.view === view ? button.setAttribute("aria-current", "page") : button.removeAttribute("aria-current");
+        });
+        try {
+          view === "administration" && await onAdministration(), view === "subscriptions" && await onSubscriptions();
+        } catch (error) {
+          message(error.message || String(error), !0), track2("error");
+        }
+      }
+    }
+    return document.querySelector(".nav").addEventListener("click", (event) => {
+      let button = event.target.closest("[data-view]");
+      button && show(button.dataset.view);
+    }), { show, get current() {
+      return current;
+    } };
+  }
+
+  // src/client/app.js
+  var state = { data: null, request: 0, busy: !1 }, usage = createUsage({ getView: () => navigation.current === "administration" ? administration.current : navigation.current, isReady: () => !!state.data }), { track, flush } = usage, configuration = createConfiguration({ run: action }), subscriptions = createSubscriptions({ run: action, onApply: (query) => {
+    filters.apply(query), navigation.show("briefing");
+  } }), newsletterDelivery = createNewsletterDelivery({ run: action }), administration = createAdministration({ isAdmin: () => !!state.data?.admin, track, onConfiguration: () => configuration.open(), onSubscribers: () => Promise.all([subscriptions.open(!0), newsletterDelivery.open()]) }), navigation = createNavigation({ onSubscriptions: () => subscriptions.open(), onAdministration: () => administration.open(), isAdmin: () => !!state.data?.admin, track }), filters = createFilters({ onInvalidate: () => ++state.request, onChange: () => {
+    track("filtro"), load();
+  } }), briefing = createBriefing({ query: () => filters.query(), run: action });
+  $("briefing-signals").addEventListener("click", (event) => {
+    let button = event.target.closest("[data-signal]");
+    button && filters.set("signal", button.dataset.signal);
+  });
+  var radar = createRadar({ onCountry: (country) => filters.set("country", country), onEntity: (entity) => filters.set("entity", entity), onNews: () => navigation.show("news") }), sources = createSources({ getData: () => state.data, run: action });
+  async function load() {
+    let request = ++state.request, started = performance.now();
+    if ($("loading").hidden = !1, !filters.isValid()) {
+      $("loading").hidden = !0;
+      return;
+    }
+    try {
+      let data = await call("getDashboard", { ...filters.query(), initial: request === 1 });
+      if (request === state.request) {
+        let first = !state.data;
+        state.data = data, setTimezone(data.preferences?.timezone), window.RADAR_PREVIEW && data.admin && ($("preview-banner").textContent = "Administraci\xF3n local \xB7 cambios en memoria, sin acceso a Google. Al recargar se restauran los valores iniciales."), filters.render(data), renderNews(data), radar.render(data), briefing.render(data), data.preferences && ($("retention-days").textContent = data.preferences.retentionDays, $("event-limit").textContent = data.preferences.eventLimit), renderShell(data), data.admin && sources.render(data), track("rendimiento", performance.now() - started), first && (navigation.show("subscriptions"), track("acceso"), track("vista"), flush());
+      }
+    } catch (error) {
+      request === state.request && (track("error"), message(error.message || String(error), !0));
+    } finally {
+      request === state.request && ($("loading").hidden = !0);
+    }
+  }
+  async function action(fn, refresh = !0) {
+    if (!state.busy) {
+      state.busy = !0, sources.setBusy(!0), document.querySelectorAll(".actions button,#sources-form button,#retry-collection,.recovery-range input,#save-source-settings,#catalog-form button,#catalog-reload,#personal-editor button,#admin-subscription-editor button,#subscriptions-list button,.newsletter-delivery button").forEach((el) => el.disabled = !0);
+      try {
+        await fn(), refresh && await load();
+      } catch (e) {
+        message(e.message || String(e), !0);
+      } finally {
+        state.busy = !1, document.querySelectorAll(".actions button,#retry-collection,.recovery-range input,#save-source-settings").forEach((el) => el.disabled = !1), document.querySelectorAll("#personal-editor button,#admin-subscription-editor button,#subscriptions-list button,.newsletter-delivery button").forEach((el) => el.disabled = !1), sources.setBusy(!1), state.data && ($("previous").disabled = state.data.page === 0, $("next").disabled = (state.data.page + 1) * state.data.pageSize >= state.data.total);
+      }
+    }
+  }
+  $("previous").addEventListener("click", () => {
+    filters.setPage(state.data.page - 1), load();
+  });
+  $("next").addEventListener("click", () => {
+    filters.setPage(state.data.page + 1), load();
+  });
+  $("export").addEventListener("click", () => action(async () => {
+    let result = await call("exportNews", filters.query()), url = URL.createObjectURL(new Blob([result.csv], { type: "text/csv;charset=utf-8" })), link = document.createElement("a");
+    link.href = url, link.download = "news-radar.csv", link.click(), setTimeout(() => URL.revokeObjectURL(url), 1e3), track("exportacion"), message(result.count + " publicaciones exportadas.");
+  }, !1));
+  $("news-list").addEventListener("click", (event) => {
+    event.target.closest("a") && track("lectura");
+  });
+  createFilterPanel();
+  window.RADAR_PREVIEW && ($("preview-banner").hidden = !1);
+  load();
+})();
+</script>

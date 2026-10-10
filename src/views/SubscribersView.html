@@ -1,0 +1,11 @@
+<section id="subscribers-section" role="tabpanel" aria-labelledby="admin-tab-subscribers" hidden>
+  <div class="panel-header"><div><p class="eyebrow">GESTIÓN DE SUSCRIPTORES</p><h2>Suscripciones del equipo</h2><p class="muted" id="subscribers-count"></p></div><button class="button primary" id="new-admin-subscription" type="button">Alta manual</button></div>
+  <div class="panel newsletter-delivery">
+    <p class="eyebrow">IDENTIDAD Y ENTREGA</p><h3 id="newsletter-sender"></h3>
+    <div class="delivery-checks" id="newsletter-checks"></div><p class="small muted" id="newsletter-sender-status" role="status"></p><p class="small muted" id="newsletter-budget"></p>
+    <p class="muted">Cada newsletter se envía a su destinatario. El grupo se usa como remitente y dirección de respuesta.</p>
+    <div class="actions"><button class="button" id="validate-newsletter-sender" type="button">Comprobar remitente</button><button class="button" id="test-newsletter" type="button">Enviar prueba a mi correo</button><button class="button primary" id="install-newsletter" type="button">Programar entrega diaria</button><button class="button" id="send-pending-newsletters" type="button">Procesar pendientes</button></div>
+    <div id="newsletter-test-result" class="message" role="status" aria-live="polite" hidden></div><div class="delivery-history" id="newsletter-history"></div>
+  </div>
+  <div class="panel subscription-editor" id="admin-subscription-editor"></div><div id="admin-subscriptions-list" class="selection-grid"></div>
+</section>

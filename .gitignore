@@ -2,7 +2,6 @@ node_modules/
 .clasprc.json
 .clasp.json
 .DS_Store
-dist/
 output/
 codeql-source/
 codeql-results/
