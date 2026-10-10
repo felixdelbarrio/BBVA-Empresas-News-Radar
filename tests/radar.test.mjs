@@ -139,3 +139,22 @@ test('la recuperación escribe solo los estados cambiados sin reescribir toda la
  const c=context(),writes=[];c.book_=()=>({getSheetByName:()=>({getRange:(row,column,size)=>({setNumberFormat(){return this;},setValues:values=>writes.push({row,size,values})})})});
  const updates=Array.from({length:600},()=>['Pendiente',0,'',0,0,'']);updates[0]=['Completada',1,'',0,0,''];updates[1]=['Completada',1,'',0,0,''];updates[10]=['Error',1,'',0,0,''];c.writeCollectionTasks_([{row:2},{row:3},{row:12}],updates);assert.equal(writes.length,2);assert.equal(writes.reduce((n,w)=>n+w.size,0),3);assert.equal(writes[1].row,12);
 });
+
+test('Radar descarta filtros ocultos y usa Empresas e instituciones por defecto',()=>{
+  const c=context(),now=new Date('2026-10-10T12:00:00Z');
+  const initial=c.dashboardQuery_({view:'radar',initial:true,country:'México',topic:'Financiación',segment:'Retail',from:'2026-01-01'},now);
+  assert.deepEqual(JSON.parse(JSON.stringify(initial)),{entity:'',segment:'Empresas e instituciones'});
+  const selected=c.dashboardQuery_({view:'radar',entity:'BBVA',segment:'Retail',country:'México',source:'Editor',search:'cuenta'},now);
+  assert.deepEqual(JSON.parse(JSON.stringify(selected)),{entity:'BBVA',segment:'Retail'});
+});
+test('Novedades impone el mes en curso y Noticias lo utiliza solo al abrir por primera vez',()=>{
+  const c=context(),now=new Date('2026-10-31T23:30:00Z');
+  const novelty=c.dashboardQuery_({view:'briefing',entity:'BBVA',from:'2026-01-01',to:'2026-01-31'},now);
+  assert.equal(novelty.from,'2026-11-01');assert.equal(novelty.to,'2026-11-30');assert.equal(novelty.entity,'BBVA');
+  const news=c.dashboardQuery_({view:'news',initial:true},now);
+  assert.equal(news.from,'2026-11-01');assert.equal(news.to,'2026-11-30');
+  const edited=c.dashboardQuery_({view:'news',from:'2026-02-01',to:'2026-02-28'},now);
+  assert.equal(edited.from,'2026-02-01');assert.equal(edited.to,'2026-02-28');
+  assert.equal(c.currentMonth_(new Date('2024-02-15T12:00:00Z')).to,'2024-02-29');
+  assert.equal(c.currentMonth_(new Date('2026-12-31T23:30:00Z')).to,'2027-01-31');
+});

@@ -37,12 +37,12 @@
   function createBriefing({ query, run }) {
     return $("newsletter-export").addEventListener("click", () => run(async () => downloadNewsletter(await call("exportNewsletter", { filters: query(), title: "Briefing de novedades" })), !1)), { render(data) {
       let briefing2 = data.briefing || { total: 0, bySignal: [], items: [] };
-      $("briefing-count").textContent = "Novedades detectadas: " + briefing2.total, $("briefing-signals").innerHTML = briefing2.bySignal.map((row) => `<button type="button" class="signal-card" data-signal="${escape(row.name)}"><strong>${row.total}</strong><span>${escape(row.name)}</span></button>`).join(""), $("briefing-list").innerHTML = briefing2.items.map((row) => `<article class="panel novelty-card"><div class="news-meta">${row.senales.map((signal) => `<span class="badge">${escape(signal)}</span>`).join("")}<time>${escape(row.fecha)}</time></div><h3><a href="${escape(validUrl(row.url))}" target="_blank" rel="noopener noreferrer">${escape(row.titular)}</a></h3><p class="novelty-context">${escape(row.entidad)} \xB7 ${escape(row.tipo)} \xB7 ${escape(row.pais)} \xB7 ${escape(row.medio)}</p><p>${escape(row.extracto || "Consulta la fuente original para conocer la oferta y sus condiciones.")}</p><div class="novelty-use"><span class="eyebrow">SEGMENTO Y TEMA</span><p>${escape(row.segmentos.length ? row.segmentos.join(" \xB7 ") : "Segmento no identificado")} \xB7 ${escape(row.tema)}</p></div><a class="button" href="${escape(validUrl(row.url))}" target="_blank" rel="noopener noreferrer">Consultar anuncio \u2197</a></article>`).join("") || '<div class="panel empty"><h2>No hay novedades detectadas en esta selecci\xF3n.</h2><p>Ampl\xEDa entidades, segmentos o fechas. Una noticia sin se\xF1ales de producto permanece disponible en Noticias.</p></div>', $("briefing-limit").hidden = !briefing2.limited;
+      $("briefing-count").textContent = "Novedades detectadas: " + briefing2.total, $("briefing-signals").innerHTML = briefing2.bySignal.map((row) => `<button type="button" class="signal-card" data-signal="${escape(row.name)}"><strong>${row.total}</strong><span>${escape(row.name)}</span></button>`).join(""), $("briefing-list").innerHTML = briefing2.items.map((row) => `<article class="panel novelty-card"><div class="news-meta">${row.senales.map((signal) => `<span class="badge">${escape(signal)}</span>`).join("")}<time>${escape(row.fecha)}</time></div><h3><a href="${escape(validUrl(row.url))}" target="_blank" rel="noopener noreferrer">${escape(row.titular)}</a></h3><p class="novelty-context">${escape(row.entidad)} \xB7 ${escape(row.tipo)} \xB7 ${escape(row.pais)} \xB7 ${escape(row.medio)}</p><p>${escape(row.extracto || "Consulta la fuente original para conocer la oferta y sus condiciones.")}</p><div class="novelty-use"><span class="eyebrow">SEGMENTO Y TEMA</span><p>${escape(row.segmentos.length ? row.segmentos.join(" \xB7 ") : "Segmento no identificado")} \xB7 ${escape(row.tema)}</p></div><a class="button" href="${escape(validUrl(row.url))}" target="_blank" rel="noopener noreferrer">Consultar anuncio \u2197</a></article>`).join("") || '<div class="panel empty"><h2>No hay novedades detectadas en esta selecci\xF3n.</h2><p>Ampl\xEDa entidades o segmentos. Una noticia sin se\xF1ales de producto permanece disponible en Noticias.</p></div>', $("briefing-limit").hidden = !briefing2.limited;
     } };
   }
 
   // src/client/features/subscription-templates.js
-  var periods = { monthly: "Mensual", weekly: "Semanal", daily: "Diaria" }, labels = { type: "Tipo de entidad", entity: "Entidad", segment: "Segmento", country: "\xC1mbito", topic: "Tema", signal: "Novedad", source: "Fuente" }, selected = (value, current) => value === current ? " selected" : "";
+  var periods = { monthly: "Mensual", weekly: "Semanal", daily: "Diaria" }, labels = { type: "Tipo de entidad", entity: "Entidad", segment: "Segmento", country: "Geograf\xEDa", topic: "Tema", signal: "Novedad", source: "Fuente" }, selected = (value, current) => value === current ? " selected" : "";
   function filterFields(catalogs, filters2) {
     return Object.entries(catalogs).map(([key, values]) => `<label>${labels[key]}<select name="${key}"><option value="">Todos</option>${values.map((value) => `<option${selected(value, filters2[key])}>${escape(value)}</option>`).join("")}</select></label>`).join("");
   }
@@ -60,7 +60,7 @@
   </form>`;
   }
   function subscriptionCards(rows, admin) {
-    return rows.map((row) => `<article class="panel selection-card"><div class="news-meta"><span class="badge">${periods[row.periodicidad]}</span><span class="status-pill" data-state="${row.activa ? "positive" : ""}">${row.activa ? "Activa" : "Pausada"}</span></div><h3>${escape(row.nombre)}</h3>${admin ? `<p>${escape(row.correo)}</p>` : ""}<div class="subscription-summary"><p class="small">${escape(Object.values(row.filtros).filter(Boolean).join(" \xB7 ") || "Todo el sector")}</p><p class="small muted">${row.filtros.country ? "" : "Todos los \xE1mbitos \xB7 "}Novedades del canal</p></div><p class="small muted">${escape(row.ultimaEntrega ? "\xDAltimo intento: " + row.ultimaEntrega.estado + " \xB7 " + row.ultimaEntrega.desde + " / " + row.ultimaEntrega.hasta : "Sin entregas registradas")}${row.nextDelivery ? " \xB7 Disponible desde " + escape(row.nextDelivery) : ""}</p><div class="actions"><button class="button" data-action="edit" data-id="${escape(row.id)}">Editar</button>${admin ? "" : `<button class="button" data-action="export" data-id="${escape(row.id)}">Vista previa</button><button class="button" data-action="apply" data-id="${escape(row.id)}">Ver noticias</button><button class="button" data-action="delete" data-id="${escape(row.id)}">Dar de baja</button>`}</div></article>`).join("") || `<div class="panel empty"><h3>${admin ? "Sin suscripciones" : "No tienes suscripciones"}</h3><p>${admin ? "Las altas del equipo aparecer\xE1n aqu\xED. Puedes crear una manualmente." : "Completa el formulario para recibir novedades por correo."}</p></div>`;
+    return rows.map((row) => `<article class="panel selection-card"><div class="news-meta"><span class="badge">${periods[row.periodicidad]}</span><span class="status-pill" data-state="${row.activa ? "positive" : ""}">${row.activa ? "Activa" : "Pausada"}</span></div><h3>${escape(row.nombre)}</h3>${admin ? `<p>${escape(row.correo)}</p>` : ""}<div class="subscription-summary"><p class="small">${escape(Object.values(row.filtros).filter(Boolean).join(" \xB7 ") || "Todo el sector")}</p><p class="small muted">${row.filtros.country ? "" : "Todas las geograf\xEDas \xB7 "}Novedades del canal</p></div><p class="small muted">${escape(row.ultimaEntrega ? "\xDAltimo intento: " + row.ultimaEntrega.estado + " \xB7 " + row.ultimaEntrega.desde + " / " + row.ultimaEntrega.hasta : "Sin entregas registradas")}${row.nextDelivery ? " \xB7 Disponible desde " + escape(row.nextDelivery) : ""}</p><div class="actions"><button class="button" data-action="edit" data-id="${escape(row.id)}">Editar</button>${admin ? "" : `<button class="button" data-action="export" data-id="${escape(row.id)}">Vista previa</button><button class="button" data-action="apply" data-id="${escape(row.id)}">Ver noticias</button><button class="button" data-action="delete" data-id="${escape(row.id)}">Dar de baja</button>`}</div></article>`).join("") || `<div class="panel empty"><h3>${admin ? "Sin suscripciones" : "No tienes suscripciones"}</h3><p>${admin ? "Las altas del equipo aparecer\xE1n aqu\xED. Puedes crear una manualmente." : "Completa el formulario para recibir novedades por correo."}</p></div>`;
   }
 
   // src/client/features/subscriptions.js
@@ -158,7 +158,7 @@
       ]
     },
     geographies: {
-      label: "Pa\xEDses y \xE1mbitos",
+      label: "Geograf\xEDas",
       help: "C\xF3digo ISO de dos letras e identificador cartogr\xE1fico ISO num\xE9rico de tres cifras. Ejemplo: Espa\xF1a, ES, es, 724.",
       fields: [
         [
@@ -300,7 +300,7 @@
         retryMinutes: "Minutos entre reintentos",
         pauseMinutes: "Minutos de pausa",
         maxSubscriptions: "M\xE1ximo de selecciones por usuario",
-        unknownCountry: "\xC1mbito predeterminado de un RSS sin pa\xEDs",
+        unknownCountry: "Geograf\xEDa predeterminado de un RSS sin pa\xEDs",
         defaultPeriodicity: "Periodicidad inicial (monthly, weekly, daily)",
         newsletterEnabled: "Activar entrega de newsletters",
         newsletterBatch: "M\xE1ximo de destinatarios por ejecuci\xF3n",
@@ -466,11 +466,11 @@
       }
       let radar2 = data.radar, next = JSON.stringify([radar2, data.countries, geography]);
       if (next === signature) return;
-      signature = next, $("metrics").innerHTML = metricCards([["Publicaciones", data.stats.news, "En la selecci\xF3n"], ["Entidades", data.stats.entities, "Con presencia en medios"], ["Medios", data.stats.sources, "Editores distintos"], ["\xC1mbitos", data.stats.countries, "Con publicaciones en la selecci\xF3n"]]), $("radar-focus").textContent = radar2.ranking.length === 1 ? radar2.ranking[0].entity : "Panorama de entidades", $("radar-headline").textContent = radar2.summary.news ? radar2.summary.news + " publicaciones en seguimiento" : "Sin publicaciones en la selecci\xF3n", $("radar-context").textContent = radar2.summary.news ? "Distribuci\xF3n geogr\xE1fica, entidades mencionadas y evoluci\xF3n de las publicaciones recopiladas." : "Ampl\xEDa los filtros para descubrir nuevas publicaciones y su distribuci\xF3n.", $("radar-latest").textContent = radar2.latest || "Sin publicaciones", $("map-selection").textContent = radar2.ranking.length === 1 ? radar2.ranking[0].entity : "Todas las entidades de la selecci\xF3n";
+      signature = next, $("metrics").innerHTML = metricCards([["Publicaciones", data.stats.news, "En la selecci\xF3n"], ["Entidades", data.stats.entities, "Con presencia en medios"], ["Medios", data.stats.sources, "Editores distintos"], ["Geograf\xEDas", data.stats.countries, "Con publicaciones en la selecci\xF3n"]]), $("radar-focus").textContent = radar2.ranking.length === 1 ? radar2.ranking[0].entity : "Panorama de entidades", $("radar-headline").textContent = radar2.summary.news ? radar2.summary.news + " publicaciones en seguimiento" : "Sin publicaciones en la selecci\xF3n", $("radar-context").textContent = radar2.summary.news ? "Distribuci\xF3n geogr\xE1fica, entidades mencionadas y evoluci\xF3n de las publicaciones recopiladas." : "Ampl\xEDa los filtros para descubrir nuevas publicaciones y su distribuci\xF3n.", $("radar-latest").textContent = radar2.latest || "Sin publicaciones", $("map-selection").textContent = radar2.ranking.length === 1 ? radar2.ranking[0].entity : "Todas las entidades de la selecci\xF3n";
       let max = Math.max(1, ...radar2.geographies.map((area) => area.total)), areas = new Map(radar2.geographies.map((area) => [area.country, area]));
       $("world-map").querySelectorAll("[data-country]").forEach((node) => {
         let area = areas.get(node.dataset.country), count = area?.total || 0, level = count ? Math.ceil(count / max * 4) : 0;
-        node.style.setProperty("--map-fill", "var(--heat-" + level + ")"), node.setAttribute("aria-label", node.dataset.country + ": " + count + " publicaciones. Filtrar por este \xE1mbito.");
+        node.style.setProperty("--map-fill", "var(--heat-" + level + ")"), node.setAttribute("aria-label", node.dataset.country + ": " + count + " publicaciones. Filtrar por esta geograf\xEDa.");
         let title = node.querySelector("title");
         title && (title.textContent = node.dataset.country + " \xB7 " + count + " publicaciones" + (area ? " \xB7 " + area.entities.map((row) => row.entity + ": " + row.count).join(", ") : ""));
       });
@@ -478,7 +478,7 @@
       $("map-countries").innerHTML = countries.map((country) => {
         let count = areas.get(country)?.total || 0;
         return `<button type="button" class="geo-row" data-country="${escape(country)}"><span>${escape(country)}</span><span class="geo-count">${count}</span><span class="geo-track"><span style="width:${count / max * 100}%"></span></span></button>`;
-      }).join(""), $("map-note").textContent = radar2.unlocated ? radar2.unlocated + " publicaciones sin \xE1mbito conocido, excluidas del mapa." : "Todas las publicaciones de la selecci\xF3n tienen un \xE1mbito conocido.", trend = radar2.trend, renderTrend($("trend-chart").clientWidth || 900), $("trend-period").textContent = radar2.trend.buckets.length ? radar2.trend.from + " \u2014 " + radar2.trend.to : "Sin publicaciones", $("trend-note").textContent = radar2.trend.intervalDays > 1 ? "Volumen agrupado en intervalos de " + radar2.trend.intervalDays + " d\xEDas." : "N\xFAmero de publicaciones por d\xEDa, incluidos los d\xEDas sin noticias.", $("entity-ranking").innerHTML = radar2.ranking.length ? radar2.ranking.slice(0, 6).map((row, i) => `<button type="button" class="ranking-row" data-entity="${escape(row.entity)}"><span class="ranking-index">${String(i + 1).padStart(2, "0")}</span><span class="ranking-name">${escape(row.entity)}<span class="ranking-track"><span style="width:${row.total / Math.max(1, radar2.summary.news) * 100}%"></span></span></span><strong>${row.total}</strong></button>`).join("") : '<p class="muted">Las entidades aparecer\xE1n al ampliar tu selecci\xF3n.</p>', $("ranking-note").textContent = radar2.ranking.length > 6 ? "Se muestran las seis entidades con m\xE1s publicaciones." : "Selecciona una entidad para explorar su actualidad.", $("radar-publisher").textContent = radar2.topPublisher || "Sin publicaciones";
+      }).join(""), $("map-note").textContent = radar2.unlocated ? radar2.unlocated + " publicaciones sin geograf\xEDa conocida, excluidas del mapa." : "Todas las publicaciones de la selecci\xF3n tienen una geograf\xEDa conocida.", trend = radar2.trend, renderTrend($("trend-chart").clientWidth || 900), $("trend-period").textContent = radar2.trend.buckets.length ? radar2.trend.from + " \u2014 " + radar2.trend.to : "Sin publicaciones", $("trend-note").textContent = radar2.trend.intervalDays > 1 ? "Volumen agrupado en intervalos de " + radar2.trend.intervalDays + " d\xEDas." : "N\xFAmero de publicaciones por d\xEDa, incluidos los d\xEDas sin noticias.", $("entity-ranking").innerHTML = radar2.ranking.length ? radar2.ranking.slice(0, 6).map((row, i) => `<button type="button" class="ranking-row" data-entity="${escape(row.entity)}"><span class="ranking-index">${String(i + 1).padStart(2, "0")}</span><span class="ranking-name">${escape(row.entity)}<span class="ranking-track"><span style="width:${row.total / Math.max(1, radar2.summary.news) * 100}%"></span></span></span><strong>${row.total}</strong></button>`).join("") : '<p class="muted">Las entidades aparecer\xE1n al ampliar tu selecci\xF3n.</p>', $("ranking-note").textContent = radar2.ranking.length > 6 ? "Se muestran las seis entidades con m\xE1s publicaciones." : "Selecciona una entidad para explorar su actualidad.", $("radar-publisher").textContent = radar2.topPublisher || "Sin publicaciones";
     } };
   }
 
@@ -486,9 +486,9 @@
   var app_config_default = {
     views: {
       radar: "Radar",
-      news: "Noticias",
       briefing: "Novedades",
-      subscriptions: "Mi newsletter",
+      news: "Noticias",
+      subscriptions: "Newsletter",
       administration: "Administraci\xF3n"
     },
     adminViews: {
@@ -565,16 +565,22 @@
 
   // src/client/features/filters.js
   function createFilters({ onInvalidate, onChange }) {
-    let form = $("filters"), page = 0;
+    let form = $("filters"), page = 0, view = "radar", defaults = {}, selections = /* @__PURE__ */ new Map(), initialized = /* @__PURE__ */ new Set();
     function options(name, values) {
       let el = form.elements[name], current = el.value;
       current && !values.includes(current) && (values = [...values, current]);
       let signature = JSON.stringify(values);
       el.dataset.options !== signature && (el.dataset.options = signature, el.innerHTML = '<option value="">Todos</option>' + values.map((x) => "<option>" + escape(x) + "</option>").join(""), el.value = current || "");
     }
+    function layout() {
+      $("geography-filter").hidden = view === "radar", $("advanced-filters").hidden = view === "radar";
+      for (let id of ["from-filter", "to-filter"]) $(id).hidden = view === "briefing";
+      $("filter-description").textContent = view === "radar" ? "Entidad y segmento del Radar." : view === "briefing" ? "Novedades del mes en curso." : "Selecci\xF3n de noticias y per\xEDodo de consulta.";
+    }
+    layout();
     let timer;
     function filterChanged(event) {
-      clearTimeout(timer), page = 0, onInvalidate();
+      clearTimeout(timer), page = 0, initialized.add(view), onInvalidate();
       let from = form.elements.from.value, to = form.elements.to.value;
       form.elements.to.setCustomValidity(from && to && from > to ? "La fecha hasta debe ser posterior o igual a la fecha desde." : ""), $("message").hidden = !0, event.type === "input" ? timer = setTimeout(onChange, 250) : onChange();
     }
@@ -586,12 +592,19 @@
     }), form.addEventListener("submit", (event) => {
       event.preventDefault(), filterChanged({ type: "submit" });
     }), {
-      query: () => ({ ...Object.fromEntries(new FormData(form)), page }),
+      query: () => ({ ...Object.fromEntries(new FormData(form)), page, view, initial: !initialized.has(view) }),
+      show: (next) => {
+        if (next === view) return !1;
+        clearTimeout(timer), onInvalidate(), selections.set(view, Object.fromEntries(new FormData(form))), view = next, page = 0, layout();
+        for (let input of form.elements) input.name && (input.value = (selections.get(view) || defaults)[input.name] || "");
+        return form.elements.to.setCustomValidity(""), !0;
+      },
       isValid: () => form.reportValidity(),
       set: (name, value) => {
-        form.elements[name].value = value, filterChanged({ type: "change" });
+        initialized.add(view), form.elements[name].value = value, filterChanged({ type: "change" });
       },
       apply: (query) => {
+        initialized.add(view);
         for (let input of form.elements) if (input.name) {
           let value = query[input.name] || "";
           value && input.tagName === "SELECT" && options(input.name, [value]), input.value = value;
@@ -600,16 +613,16 @@
       },
       setPage: (value) => page = value,
       render: (data) => {
-        page = data.page;
+        page = data.page, defaults = data.defaults || defaults, initialized.add(view);
         for (let [name, key] of [["country", "countries"], ["entity", "entities"], ["source", "sources"], ["topic", "topics"], ["type", "types"], ["segment", "segments"], ["signal", "signals"]]) options(name, data[key] || []);
-        if (data.initial) for (let [name, value] of Object.entries(data.selection)) form.elements[name] && (form.elements[name].value = value);
+        if (data.selection) for (let input of form.elements) input.name && (input.value = data.selection[input.name] || "");
       }
     };
   }
 
   // src/client/features/news.js
   function renderNews(data) {
-    $("news-list").innerHTML = data.items.length ? data.items.map((n, index) => `<article class="news-item"><span class="news-index" aria-hidden="true">${String(data.page * data.pageSize + index + 1).padStart(2, "0")}</span><div><div class="news-meta"><span class="badge">${escape(n.tema)}</span><time datetime="${escape(n.fecha)}">${escape(n.fecha)}</time><span>${escape(n.pais)}</span><span>${escape(n.medio)}</span><span>${escape(n.tipo || "")}</span></div><h3><a href="${escape(validUrl(n.url))}" target="_blank" rel="noopener noreferrer">${escape(n.titular)}</a></h3><p>${escape(n.extracto || "El feed no proporciona un extracto. Consulta la publicaci\xF3n original.")}</p><div class="news-footer"><span class="muted">${escape([n.entidad, ...n.segmentos || [], n.fuente || n.medio].filter(Boolean).join(" \xB7 "))}</span><a href="${escape(validUrl(n.url))}" target="_blank" rel="noopener noreferrer">Abrir noticia \u2197</a></div></div></article>`).join("") : '<div class="panel empty"><p class="eyebrow">SIN RESULTADOS</p><h2>No hay noticias con estos filtros.</h2><p>Prueba otra entidad, cambia el \xE1mbito o pulsa \xABVer todo\xBB para ampliar la selecci\xF3n.</p></div>', $("result-count").textContent = data.total + " publicaciones", $("page-label").textContent = data.total ? "P\xE1gina " + (data.page + 1) + " de " + Math.ceil(data.total / data.pageSize) : "Sin resultados", $("previous").disabled = data.page === 0, $("next").disabled = (data.page + 1) * data.pageSize >= data.total;
+    $("news-list").innerHTML = data.items.length ? data.items.map((n, index) => `<article class="news-item"><span class="news-index" aria-hidden="true">${String(data.page * data.pageSize + index + 1).padStart(2, "0")}</span><div><div class="news-meta"><span class="badge">${escape(n.tema)}</span><time datetime="${escape(n.fecha)}">${escape(n.fecha)}</time><span>${escape(n.pais)}</span><span>${escape(n.medio)}</span><span>${escape(n.tipo || "")}</span></div><h3><a href="${escape(validUrl(n.url))}" target="_blank" rel="noopener noreferrer">${escape(n.titular)}</a></h3><p>${escape(n.extracto || "El feed no proporciona un extracto. Consulta la publicaci\xF3n original.")}</p><div class="news-footer"><span class="muted">${escape([n.entidad, ...n.segmentos || [], n.fuente || n.medio].filter(Boolean).join(" \xB7 "))}</span><a href="${escape(validUrl(n.url))}" target="_blank" rel="noopener noreferrer">Abrir noticia \u2197</a></div></div></article>`).join("") : '<div class="panel empty"><p class="eyebrow">SIN RESULTADOS</p><h2>No hay noticias con estos filtros.</h2><p>Prueba otra entidad, cambia la geograf\xEDa o pulsa \xABVer todo\xBB para ampliar la selecci\xF3n.</p></div>', $("result-count").textContent = data.total + " publicaciones", $("page-label").textContent = data.total ? "P\xE1gina " + (data.page + 1) + " de " + Math.ceil(data.total / data.pageSize) : "Sin resultados", $("previous").disabled = data.page === 0, $("next").disabled = (data.page + 1) * data.pageSize >= data.total;
   }
 
   // src/client/features/shell.js
@@ -696,7 +709,7 @@
   }
 
   // src/client/features/navigation.js
-  function createNavigation({ isAdmin, track: track2, onAdministration, onSubscriptions }) {
+  function createNavigation({ isAdmin, track: track2, onAdministration, onSubscriptions, onSelection }) {
     let current = "radar";
     async function show(view) {
       if (!(!(view in stdin_default.views) || view === "administration" && !isAdmin())) {
@@ -706,7 +719,7 @@
           button.dataset.view === view ? button.setAttribute("aria-current", "page") : button.removeAttribute("aria-current");
         });
         try {
-          view === "administration" && await onAdministration(), view === "subscriptions" && await onSubscriptions();
+          ["radar", "news", "briefing"].includes(view) && onSelection(view), view === "administration" && await onAdministration(), view === "subscriptions" && await onSubscriptions();
         } catch (error) {
           message(error.message || String(error), !0), track2("error");
         }
@@ -722,15 +735,19 @@
 
   // src/client/app.js
   var state = { data: null, request: 0, busy: !1 }, usage = createUsage({ getView: () => navigation.current === "administration" ? administration.current : navigation.current, isReady: () => !!state.data }), { track, flush } = usage, configuration = createConfiguration({ run: action }), subscriptions = createSubscriptions({ run: action, onApply: (query) => {
-    filters.apply(query), navigation.show("briefing");
-  } }), newsletterDelivery = createNewsletterDelivery({ run: action }), administration = createAdministration({ isAdmin: () => !!state.data?.admin, track, onConfiguration: () => configuration.open(), onSubscribers: () => Promise.all([subscriptions.open(!0), newsletterDelivery.open()]) }), navigation = createNavigation({ onSubscriptions: () => subscriptions.open(), onAdministration: () => administration.open(), isAdmin: () => !!state.data?.admin, track }), filters = createFilters({ onInvalidate: () => ++state.request, onChange: () => {
+    filters.show("news"), filters.apply(query), navigation.show("news");
+  } }), newsletterDelivery = createNewsletterDelivery({ run: action }), administration = createAdministration({ isAdmin: () => !!state.data?.admin, track, onConfiguration: () => configuration.open(), onSubscribers: () => Promise.all([subscriptions.open(!0), newsletterDelivery.open()]) }), navigation = createNavigation({ onSelection: (view) => {
+    filters.show(view) && load();
+  }, onSubscriptions: () => subscriptions.open(), onAdministration: () => administration.open(), isAdmin: () => !!state.data?.admin, track }), filters = createFilters({ onInvalidate: () => ++state.request, onChange: () => {
     track("filtro"), load();
   } }), briefing = createBriefing({ query: () => filters.query(), run: action });
   $("briefing-signals").addEventListener("click", (event) => {
     let button = event.target.closest("[data-signal]");
     button && filters.set("signal", button.dataset.signal);
   });
-  var radar = createRadar({ onCountry: (country) => filters.set("country", country), onEntity: (entity) => filters.set("entity", entity), onNews: () => navigation.show("news") }), sources = createSources({ getData: () => state.data, run: action });
+  var radar = createRadar({ onCountry: (country) => {
+    filters.show("news"), filters.set("country", country), navigation.show("news");
+  }, onEntity: (entity) => filters.set("entity", entity), onNews: () => navigation.show("news") }), sources = createSources({ getData: () => state.data, run: action });
   async function load() {
     let request = ++state.request, started = performance.now();
     if ($("loading").hidden = !1, !filters.isValid()) {
@@ -738,10 +755,10 @@
       return;
     }
     try {
-      let data = await call("getDashboard", { ...filters.query(), initial: request === 1 });
+      let data = await call("getDashboard", filters.query());
       if (request === state.request) {
         let first = !state.data;
-        state.data = data, setTimezone(data.preferences?.timezone), window.RADAR_PREVIEW && data.admin && ($("preview-banner").textContent = "Administraci\xF3n local \xB7 cambios en memoria, sin acceso a Google. Al recargar se restauran los valores iniciales."), filters.render(data), renderNews(data), radar.render(data), briefing.render(data), data.preferences && ($("retention-days").textContent = data.preferences.retentionDays, $("event-limit").textContent = data.preferences.eventLimit), renderShell(data), data.admin && sources.render(data), track("rendimiento", performance.now() - started), first && (navigation.show("subscriptions"), track("acceso"), track("vista"), flush());
+        state.data = data, setTimezone(data.preferences?.timezone), window.RADAR_PREVIEW && data.admin && ($("preview-banner").textContent = "Administraci\xF3n local \xB7 cambios en memoria, sin acceso a Google. Al recargar se restauran los valores iniciales."), filters.render(data), renderNews(data), navigation.current === "radar" && radar.render(data), navigation.current === "briefing" && briefing.render(data), data.preferences && ($("retention-days").textContent = data.preferences.retentionDays, $("event-limit").textContent = data.preferences.eventLimit), renderShell(data), data.admin && sources.render(data), track("rendimiento", performance.now() - started), first && (track("acceso"), track("vista"), flush());
       }
     } catch (error) {
       request === state.request && (track("error"), message(error.message || String(error), !0));
@@ -776,6 +793,7 @@
   });
   createFilterPanel();
   window.RADAR_PREVIEW && ($("preview-banner").hidden = !1);
+  navigation.show("radar");
   load();
 })();
 </script>
