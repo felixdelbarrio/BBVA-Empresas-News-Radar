@@ -41,7 +41,7 @@ function createRadar({ onCountry, onEntity, onNews }) {
     const radar = data.radar, next = JSON.stringify([radar,data.countries,geography]);
     if (next === signature) return;
     signature = next;
-    $("metrics").innerHTML = metricCards([["Publicaciones", data.stats.news, "En la selección"], ["Entidades", data.stats.entities, "Con presencia en medios"], ["Medios", data.stats.sources, "Editores distintos"], ["Ámbitos", data.stats.countries, "Con publicaciones en la selección"]]);
+    $("metrics").innerHTML = metricCards([["Publicaciones", data.stats.news, "En la selección"], ["Entidades", data.stats.entities, "Con presencia en medios"], ["Medios", data.stats.sources, "Editores distintos"], ["Geografías", data.stats.countries, "Con publicaciones en la selección"]]);
     $("radar-focus").textContent = radar.ranking.length === 1 ? radar.ranking[0].entity : "Panorama de entidades";
     $("radar-headline").textContent = radar.summary.news ? radar.summary.news + " publicaciones en seguimiento" : "Sin publicaciones en la selección";
     $("radar-context").textContent = radar.summary.news ? "Distribución geográfica, entidades mencionadas y evolución de las publicaciones recopiladas." : "Amplía los filtros para descubrir nuevas publicaciones y su distribución.";
@@ -51,7 +51,7 @@ function createRadar({ onCountry, onEntity, onNews }) {
     $("world-map").querySelectorAll("[data-country]").forEach((node) => {
       const area = areas.get(node.dataset.country), count = area?.total || 0, level = count ? Math.ceil(count / max * 4) : 0;
       node.style.setProperty("--map-fill", "var(--heat-" + level + ")");
-      node.setAttribute("aria-label", node.dataset.country + ": " + count + " publicaciones. Filtrar por este ámbito.");
+      node.setAttribute("aria-label", node.dataset.country + ": " + count + " publicaciones. Filtrar por esta geografía.");
       const title = node.querySelector("title");
       if (title) title.textContent = node.dataset.country + " · " + count + " publicaciones" + (area ? " · " + area.entities.map((row) => row.entity + ": " + row.count).join(", ") : "");
     });
@@ -60,7 +60,7 @@ function createRadar({ onCountry, onEntity, onNews }) {
       const count = areas.get(country)?.total || 0;
       return `<button type="button" class="geo-row" data-country="${escape(country)}"><span>${escape(country)}</span><span class="geo-count">${count}</span><span class="geo-track"><span style="width:${count / max * 100}%"></span></span></button>`;
     }).join("");
-    $("map-note").textContent = radar.unlocated ? radar.unlocated + " publicaciones sin ámbito conocido, excluidas del mapa." : "Todas las publicaciones de la selección tienen un ámbito conocido.";
+    $("map-note").textContent = radar.unlocated ? radar.unlocated + " publicaciones sin geografía conocida, excluidas del mapa." : "Todas las publicaciones de la selección tienen una geografía conocida.";
     trend=radar.trend;renderTrend($("trend-chart").clientWidth||900);
     $("trend-period").textContent = radar.trend.buckets.length ? radar.trend.from + " — " + radar.trend.to : "Sin publicaciones";
     $("trend-note").textContent = radar.trend.intervalDays > 1 ? "Volumen agrupado en intervalos de " + radar.trend.intervalDays + " días." : "Número de publicaciones por día, incluidos los días sin noticias.";

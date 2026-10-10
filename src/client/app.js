@@ -16,17 +16,17 @@ import { createNavigation } from "./features/navigation.js";
 const state = { data: null, request: 0, busy: false };
 const usage = createUsage({ getView: () => navigation.current === "administration" ? administration.current : navigation.current, isReady: () => Boolean(state.data) }), { track, flush } = usage;
 const configuration = createConfiguration({run:action});
-const subscriptions = createSubscriptions({run:action,onApply:query=>{filters.apply(query);navigation.show('briefing');}});
+const subscriptions = createSubscriptions({run:action,onApply:query=>{filters.show('news');filters.apply(query);navigation.show('news');}});
 const newsletterDelivery=createNewsletterDelivery({run:action});
 const administration = createAdministration({ isAdmin: () => Boolean(state.data?.admin), track, onConfiguration:()=>configuration.open(),onSubscribers:()=>Promise.all([subscriptions.open(true),newsletterDelivery.open()]) });
-const navigation = createNavigation({ onSubscriptions:()=>subscriptions.open(), onAdministration: () => administration.open(), isAdmin: () => Boolean(state.data?.admin), track });
+const navigation = createNavigation({ onSelection:view=>{if(filters.show(view))load();}, onSubscriptions:()=>subscriptions.open(), onAdministration: () => administration.open(), isAdmin: () => Boolean(state.data?.admin), track });
 const filters = createFilters({ onInvalidate: () => ++state.request, onChange: () => {
   track("filtro");
   load();
 } });
 const briefing=createBriefing({query:()=>filters.query(),run:action});
 $('briefing-signals').addEventListener('click',event=>{const button=event.target.closest('[data-signal]');if(button)filters.set('signal',button.dataset.signal);});
-const radar = createRadar({ onCountry: (country) => filters.set("country", country), onEntity: (entity) => filters.set("entity", entity), onNews: () => navigation.show("news") });
+const radar = createRadar({ onCountry: (country) => {filters.show("news");filters.set("country", country);navigation.show("news");}, onEntity: (entity) => filters.set("entity", entity), onNews: () => navigation.show("news") });
 const sources = createSources({ getData: () => state.data, run: action });
 async function load() {
   const request = ++state.request, started = performance.now();
@@ -36,7 +36,7 @@ async function load() {
     return;
   }
   try {
-    const data = await call("getDashboard", {...filters.query(),initial:request===1});
+    const data = await call("getDashboard", filters.query());
     if (request === state.request) {
       const first = !state.data;
       state.data = data;
@@ -44,14 +44,13 @@ async function load() {
       if(window.RADAR_PREVIEW&&data.admin)$("preview-banner").textContent="Administración local · cambios en memoria, sin acceso a Google. Al recargar se restauran los valores iniciales.";
       filters.render(data);
       renderNews(data);
-      radar.render(data);
-      briefing.render(data);
+      if(navigation.current==="radar")radar.render(data);
+      if(navigation.current==="briefing")briefing.render(data);
       if(data.preferences){$("retention-days").textContent=data.preferences.retentionDays;$("event-limit").textContent=data.preferences.eventLimit;}
       renderShell(data);
       if (data.admin) sources.render(data);
       track("rendimiento", performance.now() - started);
       if (first) {
-        navigation.show("subscriptions");
         track("acceso");
         track("vista");
         flush();
@@ -110,4 +109,5 @@ $("news-list").addEventListener("click", (event) => {
 });
 createFilterPanel();
 if (window.RADAR_PREVIEW) $("preview-banner").hidden = false;
+navigation.show("radar");
 load();
