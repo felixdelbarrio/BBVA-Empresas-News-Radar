@@ -36,3 +36,8 @@ function append_(name, rows) {
   if (needed>s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(),needed-s.getMaxRows());
   const range=s.getRange(start,1,rows.length,rows[0].length);range.setNumberFormat('@').setValues(rows.map(r=>r.map(safeCell_)));
 }
+
+function trim_(name,limit) {
+  const sheet=book_().getSheetByName(name),excess=sheet.getLastRow()-1-limit;
+  if(excess>0)sheet.deleteRows(2,excess);
+}

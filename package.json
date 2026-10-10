@@ -2,7 +2,9 @@
   "name": "bbva-empresas-news-radar",
   "private": true,
   "type": "module",
-  "engines": {"node": ">=24"},
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "check": "node scripts/check.mjs",
@@ -12,5 +14,8 @@
     "preview": "node scripts/preview.mjs",
     "codeql:prepare": "node scripts/codeql-prepare.mjs",
     "verify": "npm run check && npm test"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

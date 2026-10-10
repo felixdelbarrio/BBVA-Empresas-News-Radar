@@ -47,16 +47,3 @@ function evaluate_(item, feed, now) {
 function safeCell_(value) {
   return typeof value==='string' && /^[=+@-]/.test(value) ? "'"+value : value;
 }
-function selectNews_(rows, query) {
-  const q=String(query.search||'').toLocaleLowerCase('es').slice(0,160);
-  return rows.filter(r=>(!q || (r.titular+' '+r.extracto+' '+r.entidad).toLocaleLowerCase('es').includes(q)) && (!query.country || r.pais===query.country) && (!query.entity || entityKey_(r.entidad)===query.entity) && (!query.source || r.medio===query.source) && (!query.topic || r.tema===query.topic) && (!query.from || r.fecha>=query.from) && (!query.to || r.fecha<=query.to)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
-}
-function insights_(rows) {
-  const counts={};rows.forEach(row=>counts[row.tema]=(counts[row.tema]||0)+1);
-  const top=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0],countries=new Set(rows.map(row=>row.pais).filter(country=>country!=='Sin determinar')),publishers=new Set(rows.map(row=>row.medio));
-  return [rows.length+' publicaciones en la selección.',top?'El tema más frecuente es '+top[0]+'.':'No hay publicaciones para identificar un tema predominante.',publishers.size+' medios con publicaciones en la selección.',countries.size+' ámbitos geográficos de seguimiento; el ámbito de la fuente no atribuye la operación a ese país.','Las noticias se incorporan automáticamente desde los feeds. Consulta el enlace de cada publicación para leer su contenido.'];
-}
-function entityKey_(entity) {
-  if(NEWS_PROFILE.primary.name===entity||NEWS_PROFILE.primary.aliases.includes(entity))return 'BBVA';
-  return String(entity||'').replace(/\s+Empresas$/i,'').trim();
-}

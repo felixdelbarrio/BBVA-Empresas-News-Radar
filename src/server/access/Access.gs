@@ -1,7 +1,3 @@
-function doGet() {
-  authorize_();
-  return HtmlService.createHtmlOutputFromFile('Index').setTitle('News Radar · BBVA Empresas').addMetaTag('viewport','width=device-width, initial-scale=1');
-}
 function properties_() { return PropertiesService.getScriptProperties(); }
 function authorize_(admin) {
   const owner=properties_().getProperty('OWNER_EMAIL'),email=Session.getActiveUser().getEmail().trim().toLowerCase();

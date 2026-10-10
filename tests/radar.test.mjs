@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
-const source=['Config','Core','News','Metrics'].map(name=>fs.readFileSync('dist/'+name+'.gs','utf8')).join('\n');
+import {readServerScript,renderIncludes,read,files} from '../scripts/source.mjs';
+const source=readServerScript();
 function context(email='felix.delbarrio@bbva.com'){
   const c=vm.createContext({console}),properties={OWNER_EMAIL:'felix.delbarrio@bbva.com',SPREADSHEET_ID:'book'},cache=new Map();
   c.PropertiesService={getScriptProperties:()=>({getProperty:key=>properties[key]||null,setProperty:(key,value)=>properties[key]=value,deleteProperty:key=>delete properties[key]})};
@@ -76,7 +77,7 @@ test('adopción calcula ventanas y sesiones y obtiene el correo exclusivamente d
 });
 test('distribución no contiene flujo manual, estilos obsoletos ni permisos adicionales',()=>{
   const c=context();for(const name of ['verifyNews','score_','getCandidates','startSearch','searchTick_','articleDate_'])assert.equal(typeof c[name],'undefined');
-  const html=fs.readFileSync('dist/Index.html','utf8');assert.doesNotMatch(html,/verify-form|verification-form|candidates-body|Verificar|puntuar|puntuación/);assert.equal(fs.existsSync('src/Search.gs'),false);
+  const html=renderIncludes(read('dist/Index.html'));assert.doesNotMatch(html,/verify-form|verification-form|candidates-body|Verificar|puntuar|puntuación/);assert.ok(files('src/server').every(file=>!file.endsWith('/Search.gs')));
   const manifest=JSON.parse(fs.readFileSync('src/appsscript.json'));assert.equal(manifest.oauthScopes.length,4);assert.ok(!manifest.oauthScopes.some(scope=>/gmail|drive|admin.directory/.test(scope)));
 });
 
@@ -88,4 +89,27 @@ test('todas las fuentes nacen activas y la configuración desactiva solo las sel
   const c=context(),all=c.configuredFeeds_();assert.equal(all.filter(feed=>feed.enabled).length,57);
   c.saveSourceSettings(all.slice(1).map(feed=>feed.id));assert.equal(c.feeds_().length,56);assert.equal(c.configuredFeeds_()[0].enabled,false);
   c.saveSourceSettings(all.map(feed=>feed.id));assert.equal(c.feeds_().length,57);assert.throws(()=>c.saveSourceSettings(['unknown']));assert.throws(()=>context('reader@bbva.com').saveSourceSettings([]),/no autorizado/);
+});
+
+test('filtros y CSV coinciden para banco, país, medio, tema y fechas inclusivas',()=>{
+  const c=context(),rows=[{fecha:'2026-10-08',pais:'México',entidad:'Santander Empresas',medio:'El País',tema:'Financiación',titular:'Tesorería corporativa',extracto:''},
+    {fecha:'2026-10-07',pais:'España',entidad:'Santander Empresas',medio:'El País',tema:'Financiación',titular:'España',extracto:''},
+    {fecha:'2026-10-09',pais:'México',entidad:'BBVA Business',medio:'El País',tema:'Financiación',titular:'BBVA',extracto:''}];
+  const query={entity:'Santander',country:'México',source:'El País',topic:'Financiación',from:'2026-10-08',to:'2026-10-08',search:'  tesoreria  '};
+  const result=c.newsDashboard_(rows,query,c.defaultFeeds_()),csv=c.newsCsv_(rows,query);assert.equal(result.total,1);assert.equal(csv.count,1);assert.match(csv.csv,/Tesorería corporativa/);assert.doesNotMatch(csv.csv,/"España"/);
+  assert.throws(()=>c.selectNews_(rows,{from:'2026-10-09',to:'2026-10-01'}),/fecha desde/);
+});
+test('opciones incluyen el perfil sin noticias y la paginación se ajusta al resultado',()=>{
+  const c=context(),empty=c.newsDashboard_([],{page:99},c.defaultFeeds_());assert.equal(empty.page,0);assert.ok(empty.entities.includes('Santander'));assert.ok(empty.countries.includes('México'));
+  const row={fecha:'2026-10-08',pais:'México',entidad:'Santander Empresas',medio:'El País',tema:'Financiación',titular:'Santander',extracto:''};
+  const result=c.newsDashboard_(Array.from({length:31},()=>row),{page:99},[]);assert.equal(result.page,1);assert.equal(result.items.length,1);
+});
+
+test('entrada web evalúa la plantilla y limita los fragmentos internos',()=>{
+  const c=context();let evaluated=false;
+  const output={setTitle(){return this;},addMetaTag(){return this;}};
+  c.HtmlService={createTemplateFromFile:name=>{assert.equal(name,'Index');return {evaluate(){evaluated=true;return output;}};},createHtmlOutputFromFile:name=>({getContent:()=>read('dist/'+name+'.html')})};
+  assert.equal(c.doGet(),output);assert.equal(evaluated,true);assert.match(c.include_('Tokens'),/:root/);assert.throws(()=>c.include_('Config'),/desconocido/);
+  assert.equal(fs.existsSync('dist/Core.gs'),false);assert.equal(fs.existsSync('src/Client.html'),false);
+  const html=renderIncludes(read('dist/Index.html'));assert.doesNotMatch(html,/<\?!=|\{\{/);assert.match(html,/<script id="radar-client">/);
 });

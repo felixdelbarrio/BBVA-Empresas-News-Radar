@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>News Radar · BBVA Empresas</title>
+<?!= include_('Tokens'); ?><?!= include_('Styles'); ?>
+</head><body>
+<a class="skip" href="#main">Ir al contenido</a>
+{{Sidebar}}
+<main class="main" id="main"><div id="preview-banner" class="preview-banner" hidden>Vista previa local · instantánea de fuentes RSS · automatización disponible al instalar en Google</div>
+<header class="topbar"><div><p class="eyebrow">Banca de Empresas e Instituciones</p><h1 id="page-title">Radar de actualidad</h1></div><div class="actions"><a class="button" id="sheet-link" target="_blank" rel="noopener noreferrer" hidden>Abrir hoja</a><button class="button" id="export">Exportar CSV</button><button class="button primary" id="collect" data-admin hidden>↻ Recopilar ahora</button></div></header>
+<div class="content"><div id="message" class="message" role="status" aria-live="polite" hidden></div><div id="loading" class="loading" role="status">Cargando el radar…</div>
+<div class="intro"><p class="muted">Una visión ordenada de BBVA Empresas y CIB.</p><span class="status"><span class="status-dot" aria-hidden="true"></span><span id="daily-status">Comprobando automatización</span></span></div>
+<section class="metrics" id="metrics" aria-label="Indicadores"></section>
+{{SummaryView}}
+{{NewsView}}
+{{AuditView}}
+{{SourcesView}}
+{{TelemetryView}}
+{{AdoptionView}}
+<p class="small muted">Se registra tu correo corporativo y eventos de uso para medir adopción. Datos visibles solo al administrador; conservación máxima de {{RetentionDays}} días y {{EventLimit}} eventos.</p>
+</div></main><?!= include_('Client'); ?></body></html>
