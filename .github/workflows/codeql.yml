@@ -36,7 +36,7 @@ jobs:
         if: matrix.language == 'javascript-typescript'
         with:
           node-version-file: .nvmrc
-      - run: make codeql
+      - run: make install codeql
         if: matrix.language == 'javascript-typescript'
       - name: Initialize CodeQL
         uses: github/codeql-action/init@f3c49fd1ef3281abc41069b3dd22807a60c963f6 # v4

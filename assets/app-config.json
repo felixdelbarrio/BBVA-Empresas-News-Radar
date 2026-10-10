@@ -1,0 +1,17 @@
+{
+  "views": {
+    "radar": "Radar",
+    "news": "Noticias",
+    "briefing": "Novedades",
+    "subscriptions": "Mi newsletter",
+    "administration": "Administración"
+  },
+  "adminViews": {
+    "configuration": "Configuración de negocio",
+    "sources": "Fuentes y programación",
+    "audit": "Auditoría",
+    "telemetry": "Telemetría",
+    "adoption": "Adopción",
+    "subscribers": "Suscripciones"
+  }
+}

@@ -24,4 +24,6 @@ jobs:
         env:
           BASE_BRANCH: ${{ github.base_ref }}
           HEAD_BRANCH: ${{ github.head_ref }}
-        run: node scripts/gitflow-check.mjs "$BASE_BRANCH" "$HEAD_BRANCH"
+          BASE_REPOSITORY: ${{ github.event.pull_request.base.repo.full_name }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        run: node scripts/gitflow-check.mjs "$BASE_BRANCH" "$HEAD_BRANCH" "$BASE_REPOSITORY" "$HEAD_REPOSITORY"
