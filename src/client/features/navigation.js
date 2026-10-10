@@ -1,30 +1,31 @@
-import { $ } from "../core/dom.js";
-import { loadMetrics } from "./metrics.js";
-import { loadAudit } from "./audit.js";
-function createNavigation({ isAdmin, track }) {
+import { $, message } from "../core/dom.js";
+import config from "../config.js";
+function createNavigation({ isAdmin, track, onAdministration, onSubscriptions }) {
   let current = "radar";
-  async function setView(view) {
-    if (!["radar", "news"].includes(view) && !isAdmin()) return;
+  async function show(view) {
+    if (!(view in config.views) || view === "administration" && !isAdmin()) return;
     current = view;
+    window.scrollTo({top:0,behavior:"auto"});
     track("vista");
-    const isNews = view === "news" || view === "radar";
-    $("news-section").hidden = !isNews;
-    $("summary").hidden = view !== "radar";
-    $("metrics").hidden = !isNews;
-    ["audit", "sources", "telemetry", "adoption"].forEach((name) => $(name + "-section").hidden = view !== name);
-    $("page-title").textContent = { radar: "Radar de actualidad", news: "Noticias", audit: "Auditor\xEDa", sources: "Fuentes y programaci\xF3n", telemetry: "Telemetr\xEDa", adoption: "Adopci\xF3n" }[view];
-    document.querySelectorAll("[data-view]").forEach((el) => {
-      if (el.dataset.view === view) el.setAttribute("aria-current", "page");
-      else el.removeAttribute("aria-current");
+    for (const name of Object.keys(config.views)) $(name + "-section").hidden = name !== view;
+    $("filters-section").hidden = ["administration","subscriptions"].includes(view);
+    $("open-filters").hidden=["administration","subscriptions"].includes(view);
+    $("export").hidden = ["administration","subscriptions"].includes(view);
+    $("page-title").textContent = config.views[view];
+    document.querySelectorAll("[data-view]").forEach((button) => {
+      if (button.dataset.view === view) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
     });
-    if (view === "telemetry" || view === "adoption") await loadMetrics(view, () => current === view);
-    if (view === "audit") await loadAudit();
+    try{
+      if (view === "administration") await onAdministration();
+      if(view === "subscriptions")await onSubscriptions();
+    }catch(error){message(error.message||String(error),true);track("error");}
   }
-  document.querySelector(".nav").addEventListener("click", (e) => {
-    const button = e.target.closest("[data-view]");
-    if (button) setView(button.dataset.view);
+  document.querySelector(".nav").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-view]");
+    if (button) show(button.dataset.view);
   });
-  return { get current() {
+  return { show, get current() {
     return current;
   } };
 }

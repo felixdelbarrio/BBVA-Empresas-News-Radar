@@ -1,0 +1,187 @@
+{
+  "entities": {
+    "label": "Entidades",
+    "help": "Lista de seguimiento editable. El tipo es una categoría editorial, no acredita licencia bancaria. Alias y países: separados por punto y coma.",
+    "fields": [
+      [
+        "name",
+        "Nombre",
+        "text"
+      ],
+      [
+        "type",
+        "Tipo de entidad",
+        "text"
+      ],
+      [
+        "aliases",
+        "Alias de búsqueda",
+        "list"
+      ],
+      [
+        "countries",
+        "Países del catálogo",
+        "list"
+      ],
+      [
+        "enabled",
+        "Activa",
+        "boolean"
+      ]
+    ]
+  },
+  "geographies": {
+    "label": "Países y ámbitos",
+    "help": "Código ISO de dos letras e identificador cartográfico ISO numérico de tres cifras. Ejemplo: España, ES, es, 724.",
+    "fields": [
+      [
+        "name",
+        "Nombre",
+        "text"
+      ],
+      [
+        "searchName",
+        "Nombre del país en búsquedas",
+        "text"
+      ],
+      [
+        "code",
+        "Código ISO",
+        "text"
+      ],
+      [
+        "language",
+        "Idioma de Google News",
+        "text"
+      ],
+      [
+        "mapId",
+        "ISO numérico del mapa",
+        "text"
+      ],
+      [
+        "enabled",
+        "Activo",
+        "boolean"
+      ]
+    ]
+  },
+  "topics": {
+    "label": "Temas",
+    "help": "La primera coincidencia determina el tema. Los términos admiten raíces de palabras y se separan por punto y coma. Se ignoran mayúsculas y acentos.",
+    "fields": [
+      [
+        "name",
+        "Tema",
+        "text"
+      ],
+      [
+        "terms",
+        "Términos o raíces",
+        "list"
+      ],
+      [
+        "enabled",
+        "Activo",
+        "boolean"
+      ]
+    ]
+  },
+  "segments": {
+    "label": "Segmentos",
+    "help": "Una noticia puede pertenecer a varios segmentos. Sin coincidencia se mantiene sin segmento; no se atribuye por el nombre del banco.",
+    "fields": [
+      [
+        "name",
+        "Segmento",
+        "text"
+      ],
+      [
+        "terms",
+        "Términos o raíces",
+        "list"
+      ],
+      [
+        "enabled",
+        "Activo",
+        "boolean"
+      ]
+    ]
+  },
+  "signals": {
+    "label": "Novedades y lanzamientos",
+    "help": "Se exige señal y contexto de producto. headline busca la señal solo en el titular; fullText incluye el extracto. Las exclusiones siempre se aplican al titular. Listas separadas por punto y coma.",
+    "fields": [
+      [
+        "name",
+        "Novedad",
+        "text"
+      ],
+      [
+        "terms",
+        "Términos de señal",
+        "list"
+      ],
+      [
+        "context",
+        "Contexto requerido (opcional)",
+        "list"
+      ],
+      [
+        "exclude",
+        "Excluir si el titular contiene",
+        "list"
+      ],
+      [
+        "scope",
+        "Ubicación de la señal: headline o fullText",
+        "text"
+      ],
+      [
+        "enabled",
+        "Activa",
+        "boolean"
+      ]
+    ]
+  },
+  "settings": {
+    "label": "Operación y selección inicial",
+    "help": "Los límites se validan al guardar. Cambiar hora o zona requiere reactivar la programación diaria. Listas: separadas por punto y coma.",
+    "labels": {
+      "timezone": "Zona horaria",
+      "windowDays": "Ventana de recopilación (días)",
+      "pageSize": "Noticias por página",
+      "defaultEntity": "Entidad inicial (vacío: todas)",
+      "defaultSegment": "Segmento inicial (vacío: todos)",
+      "defaultTopic": "Tema inicial (vacío: todos)",
+      "defaultCountry": "País inicial (vacío: todos)",
+      "dailyHour": "Hora de recopilación (0–23)",
+      "searchTerms": "Términos de búsqueda de sector",
+      "disabledSources": "IDs de fuentes de perfil desactivadas",
+      "briefingLimit": "Máximo de novedades por newsletter",
+      "unclassifiedTopic": "Etiqueta sin tema",
+      "maxCustomFeeds": "Máximo de fuentes RSS",
+      "maxFeedBytes": "Máximo de caracteres de feed",
+      "maxItems": "Máximo de entradas por feed",
+      "exportLimit": "Máximo de noticias exportadas",
+      "newsReadLimit": "Máximo de noticias consultadas",
+      "eventLimit": "Máximo de eventos conservados",
+      "retentionDays": "Conservación de eventos (días)",
+      "trendPoints": "Máximo de intervalos de gráfica",
+      "trendSeries": "Máximo de series (incluye otras)",
+      "collectionBatch": "Fuentes por lote",
+      "retryMinutes": "Minutos entre reintentos",
+      "pauseMinutes": "Minutos de pausa",
+      "maxSubscriptions": "Máximo de selecciones por usuario",
+      "unknownCountry": "Ámbito predeterminado de un RSS sin país",
+      "defaultPeriodicity": "Periodicidad inicial (monthly, weekly, daily)",
+      "newsletterEnabled": "Activar entrega de newsletters",
+      "newsletterBatch": "Máximo de destinatarios por ejecución",
+      "defaultNewsletterName": "Nombre inicial de la newsletter",
+      "newsletterSender": "Remitente verificado en Gmail (correo del grupo)",
+      "newsletterSenderName": "Nombre visible del remitente",
+      "newsletterDailyLimit": "Límite de newsletters en 24 horas",
+      "newsletterAppUrl": "URL publicada de News Radar (gestión de suscripciones)"
+    }
+  }
+}
