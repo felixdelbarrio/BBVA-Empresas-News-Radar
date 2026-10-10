@@ -182,6 +182,67 @@
       "newsletterSenderName": "Nombre visible del remitente",
       "newsletterDailyLimit": "Límite de newsletters en 24 horas",
       "newsletterAppUrl": "URL publicada de News Radar (gestión de suscripciones)"
-    }
+    },
+    "groups": [
+      {
+        "label": "Newsletter",
+        "keys": [
+          "newsletterEnabled",
+          "newsletterSender",
+          "newsletterSenderName",
+          "newsletterAppUrl",
+          "defaultPeriodicity",
+          "defaultNewsletterName",
+          "newsletterBatch",
+          "newsletterDailyLimit",
+          "maxSubscriptions",
+          "briefingLimit"
+        ]
+      },
+      {
+        "label": "Selección inicial",
+        "keys": [
+          "defaultEntity",
+          "defaultSegment",
+          "defaultTopic",
+          "defaultCountry"
+        ]
+      },
+      {
+        "label": "Recopilación",
+        "keys": [
+          "timezone",
+          "dailyHour",
+          "windowDays",
+          "searchTerms",
+          "disabledSources",
+          "collectionBatch",
+          "retryMinutes",
+          "pauseMinutes"
+        ]
+      },
+      {
+        "label": "Visualización",
+        "keys": [
+          "pageSize",
+          "trendPoints",
+          "trendSeries",
+          "unknownCountry",
+          "unclassifiedTopic"
+        ]
+      },
+      {
+        "label": "Recursos y conservación",
+        "keys": [
+          "maxCustomFeeds",
+          "maxFeedBytes",
+          "maxItems",
+          "exportLimit",
+          "newsReadLimit",
+          "eventLimit",
+          "retentionDays"
+        ]
+      }
+    ]
   }
 }

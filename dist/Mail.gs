@@ -6,8 +6,12 @@ function newsletterEmail_(value){
 function gmailRequest_(path,payload){
   const response=UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/'+path,{method:payload?'post':'get',headers:{Authorization:'Bearer '+ScriptApp.getOAuthToken()},...(payload?{contentType:'application/json',payload:JSON.stringify(payload)}:{}),muteHttpExceptions:true});
   const status=response.getResponseCode();
-  if(status<200||status>=300)throw Error('Gmail API ('+status+'). '+(status===404?'Añade y verifica el grupo en Gmail → Cuentas → Enviar como.':status===401||status===403?'Revisa los permisos del propietario y que Gmail API esté habilitada en el proyecto de Google Cloud.':status===429?'Límite de envío alcanzado; revisa las cuotas de Google.':'No se ha confirmado la entrega. Revisa Gmail antes de reintentar.'));
-  return JSON.parse(response.getContentText());
+  let result;try{result=JSON.parse(response.getContentText());}catch(_){result={};}
+  if(status<200||status>=300){
+    const detail=plainText_(result.error?.message||'').slice(0,300),help=status===404?'Añade y verifica el grupo en Gmail → Cuentas → Enviar como.':status===401||status===403?'Revisa los permisos del propietario y que Gmail API esté habilitada en el proyecto de Google Cloud.':status===429?'Límite de envío alcanzado; revisa las cuotas de Google.':'Revisa el registro antes de reintentar.';
+    const error=Error('Gmail API ('+status+'). '+detail+' '+help);error.rejected=status>=400&&status<500&&status!==408;throw error;
+  }
+  return result;
 }
 function newsletterSender_(){
   const settings=settings_(),address=newsletterEmail_(settings.newsletterSender),alias=gmailRequest_('settings/sendAs/'+encodeURIComponent(address));
@@ -18,7 +22,8 @@ function newsletterBudget_(deliveries,now){
   return Math.max(0,settings_().newsletterDailyLimit-deliveries.filter(row=>['Enviando','Enviada','Revisar'].includes(row.estado)&&new Date(row.fecha).getTime()>now.getTime()-86400000).length);
 }
 function getNewsletterDeliveryStatus(){
-  authorize_(true);const settings=settings_(),status={address:settings.newsletterSender,name:settings.newsletterSenderName,enabled:settings.newsletterEnabled,scheduled:newsletterEnabled_(),remaining:newsletterBudget_(rows_('NewsletterEnvios'),new Date())};
+  authorize_(true);const settings=settings_(),status={address:settings.newsletterSender,name:settings.newsletterSenderName,enabled:settings.newsletterEnabled,scheduled:ScriptApp.getProjectTriggers().some(trigger=>trigger.getHandlerFunction()==='deliverNewsletters_'),remaining:newsletterBudget_(rows_('NewsletterEnvios'),new Date())};
+  status.last=rows_('NewsletterEnvios',1)[0]||null;
   try{return {...status,...newsletterSender_(),available:true,error:''};}
   catch(error){return {...status,available:false,error:error.message};}
 }
@@ -42,19 +47,24 @@ function sendNewsletterMail_(sender,recipient,subject,content){
 }
 function sendNewsletterTest(){
   const session=authorize_(true),lock=LockService.getScriptLock();lock.waitLock(10000);
+  let claimed=false;
   try{
     const now=new Date();if(!newsletterBudget_(rows_('NewsletterEnvios'),now))throw Error('Se ha alcanzado el límite configurado de newsletters en 24 horas.');
-    const sender=newsletterSender_(),defaults=subscriptionDefaults_(),query=subscriptionQuery_({periodicidad:defaults.periodicity,filtros:defaults.filters},now),content=newsletter_(rows_('Noticias',settings_().newsReadLimit),query,defaults.name,now);
+    const sender=newsletterSender_(),defaults=subscriptionDefaults_(),end=calendarDate_(now),start=new Date(end);start.setUTCDate(start.getUTCDate()-settings_().windowDays+1);
+    const query={...defaults.filters,from:start.toISOString().slice(0,10),to:end.toISOString().slice(0,10)},content=newsletter_(rows_('Noticias',settings_().newsReadLimit),query,defaults.name,now);
     append_('NewsletterEnvios',[['prueba:'+Utilities.getUuid(),'',session.email,query.from,query.to,'Enviando',now.toISOString(),'Prueba del administrador']]);
+    claimed=true;
     const sheet=book_().getSheetByName('NewsletterEnvios'),id=completeNewsletterDelivery_(sheet,sheet.getLastRow(),sender,session.email,'Prueba · '+defaults.name,content);
-    return 'Prueba enviada únicamente a '+session.email+' desde '+sender.address+'. Gmail ID: '+id+'.';
+    return {accepted:true,recipient:session.email,sender:sender.address,messageId:id,count:content.count,from:query.from,to:query.to};
+  }catch(error){if(!claimed)recordNewsletterBlock_(error,session.email);throw error;
   }finally{lock.releaseLock();}
 }
+function recordNewsletterBlock_(error,email){append_('NewsletterEnvios',[['diagnostico:'+Utilities.getUuid(),'',email,'','','Bloqueada',new Date().toISOString(),String(error.message).slice(0,500)]]);}
 function completeNewsletterDelivery_(sheet,index,sender,recipient,subject,content){
   try{
     const id=sendNewsletterMail_(sender,recipient,subject,content);
     sheet.getRange(index,6,1,3).setValues([['Enviada',new Date().toISOString(),'Gmail ID: '+id]]);return id;
   }catch(error){
-    sheet.getRange(index,6,1,3).setValues([['Revisar',new Date().toISOString(),String(error.message).slice(0,500)]]);throw error;
+    sheet.getRange(index,6,1,3).setValues([[error.rejected?'No enviado':'Revisar',new Date().toISOString(),String(error.message).slice(0,500)]]);throw error;
   }
 }

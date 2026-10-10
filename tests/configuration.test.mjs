@@ -71,3 +71,17 @@ test('la entrega registra cada período antes de enviar y no duplica ni reintent
  c.subscriptionRows_=()=>[{id:'fallo',correo:'equipo@bbva.com',nombre:'Canal',periodicidad:'monthly',activa:true,actualizada:'2020-01-01T00:00:00Z',filtros:{entity:'BBVA'}}];c.sendNewsletterMail_=()=>{sent++;throw Error('Resultado incierto');};c.deliverNewsletters_();c.deliverNewsletters_();assert.equal(sent,2);assert.equal(s.sheets.get('NewsletterEnvios').grid[2][5],'Revisar');
  c.newsletterBudget_=()=>0;c.subscriptionRows_=()=>[{id:'quota',activa:true}];c.deliverNewsletters_();assert.equal(sent,2);
 });
+
+test('la próxima entrega diferencia altas nuevas, pendientes, rechazos y suscripciones pausadas',()=>{
+ const s=storage(),{c}=s;c.initializeConfiguration();const now=new Date('2026-10-10T10:00:00Z'),row={activa:true,periodicidad:'monthly',actualizada:'2026-10-10T09:00:00Z'};
+ assert.equal(c.newsletterNextDate_(row,now),'2026-11-01');row.actualizada='2026-09-01T09:00:00Z';assert.equal(c.newsletterNextDate_(row,now),'2026-10-10');
+ assert.equal(c.newsletterNextDate_(row,now,{desde:'2026-09-01',estado:'Enviada'}),'2026-11-01');assert.equal(c.newsletterNextDate_(row,now,{desde:'2026-09-01',estado:'No enviado'}),'2026-10-10');
+ assert.equal(c.newsletterNextDate_({...row,periodicidad:'weekly',actualizada:now.toISOString()},now),'2026-10-12');assert.equal(c.newsletterNextDate_({...row,periodicidad:'daily',actualizada:now.toISOString()},now),'2026-10-11');assert.equal(c.newsletterNextDate_({...row,activa:false},now),'');
+});
+test('un rechazo confirmado se puede reintentar y los mensajes de selecciones distintas conservan su nombre',()=>{
+ const s=storage(),{c}=s;c.initializeConfiguration();const cfg=c.getConfiguration();cfg.config.settings.newsletterEnabled=true;c.saveConfiguration(cfg);s.book.insertSheet('Noticias').grid.push([]);
+ const names=[],rows=['Canal A','Canal B'].map((nombre,i)=>({id:String(i),nombre,correo:'user'+i+'@bbva.com',periodicidad:'monthly',activa:true,actualizada:'2020-01-01',filtros:{}}));c.subscriptionRows_=()=>rows;c.newsletterSender_=()=>({});
+ c.newsletterContent_=(_rows,_query,title)=>{names.push(title);return {count:1,html:title,text:title};};c.sendNewsletterMail_=()=>{const error=Error('Rechazado');error.rejected=true;throw error;};
+ assert.equal(c.deliverNewsletters_().state,'error');assert.equal(s.sheets.get('NewsletterEnvios').grid[1][5],'No enviado');c.sendNewsletterMail_=(_s,_r,_subject,content)=>{assert.match(content.html,/Canal [AB]/);return 'accepted';};
+ const result=c.deliverNewsletters_();assert.equal(result.accepted,2);assert.deepEqual(names,['Canal A','Canal A','Canal B']);assert.equal(c.deliverNewsletters_().state,'no_due');
+});

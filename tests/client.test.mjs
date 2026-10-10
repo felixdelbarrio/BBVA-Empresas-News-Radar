@@ -105,3 +105,11 @@ test('el administrador transmite el período seleccionado al recuperar noticias'
  const c=client({collectNow:{added:0,pending:1,errors:[]}});c.requests[0].resolve({...dashboard('Inicial'),admin:true,feeds:[],configuredFeeds:[],runs:[],collection:{total:0}});await settle();
  c.element('input[name="recovery-range"]:checked').value='year';const action=c.element('collect').listeners.click();await settle();c.requests.at(-1).resolve({...dashboard('Recuperada'),admin:true,feeds:[],configuredFeeds:[],runs:[],collection:{total:0}});await action;assert.equal(c.rpc.find(r=>r.method==='collectNow').query,'year');assert.match(c.element('message').textContent,/consultas pendientes/);
 });
+
+test('la activación de fuentes persiste al buscar y paginar antes de guardar',async()=>{
+ const c=client(),feeds=Array.from({length:31},(_,i)=>({id:String(i),name:'Fuente '+i,country:'España',kind:'profile',url:'https://example.com/rss',enabled:true}));
+ c.requests[0].resolve({...dashboard('Inicial'),admin:true,feeds:[],configuredFeeds:feeds,runs:[],collection:{}});await settle();
+ c.element('configured-sources-body').listeners.change({target:{matches:()=>true,dataset:{id:'0'},checked:false}});c.element('source-next').listeners.click();assert.match(c.element('configured-sources-body').innerHTML,/Fuente 30/);
+ c.element('source-search').value='Fuente 0';c.element('source-search').listeners.input();assert.doesNotMatch(c.element('configured-sources-body').innerHTML,/ checked/);
+ c.element('save-source-settings').listeners.click();await settle();const saved=c.rpc.find(row=>row.method==='saveSourceSettings').query;assert.equal(saved.length,30);assert.ok(!saved.includes('0'));assert.ok(saved.includes('30'));
+});

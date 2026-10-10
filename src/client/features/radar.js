@@ -43,8 +43,8 @@ function createRadar({ onCountry, onEntity, onNews }) {
     signature = next;
     $("metrics").innerHTML = metricCards([["Publicaciones", data.stats.news, "En la selección"], ["Entidades", data.stats.entities, "Con presencia en medios"], ["Medios", data.stats.sources, "Editores distintos"], ["Ámbitos", data.stats.countries, "Con publicaciones en la selección"]]);
     $("radar-focus").textContent = radar.ranking.length === 1 ? radar.ranking[0].entity : "Panorama de entidades";
-    $("radar-headline").textContent = radar.summary.news ? radar.summary.news + " publicaciones. Una visión conectada." : "Tu próximo movimiento empieza aquí.";
-    $("radar-context").textContent = radar.summary.news ? "Explora dónde se concentra la actualidad y cómo evoluciona la presencia de las entidades en medios." : "Amplía los filtros para descubrir nuevas publicaciones y su distribución.";
+    $("radar-headline").textContent = radar.summary.news ? radar.summary.news + " publicaciones en seguimiento" : "Sin publicaciones en la selección";
+    $("radar-context").textContent = radar.summary.news ? "Distribución geográfica, entidades mencionadas y evolución de las publicaciones recopiladas." : "Amplía los filtros para descubrir nuevas publicaciones y su distribución.";
     $("radar-latest").textContent = radar.latest || "Sin publicaciones";
     $("map-selection").textContent = radar.ranking.length === 1 ? radar.ranking[0].entity : "Todas las entidades de la selección";
     const max = Math.max(1, ...radar.geographies.map((area) => area.total)), areas = new Map(radar.geographies.map((area) => [area.country, area]));

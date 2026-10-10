@@ -13,12 +13,12 @@ const rows=raw.flatMap((item,i)=>{
   const feed=feeds[i<10?0:1],result=context.evaluate_(item,feed,now);if(!result.item)return [];
   const n=result.item;return [{id:String(i),fecha:n.date.toISOString().slice(0,10),pais:feed.country,medio:feed.name,entidad:feed.entity,titular:n.title,extracto:n.excerpt,tema:n.topic,url:n.url,fuente:feed.name}];
 });
-const names=['settings_','searchText_','businessIndex_','termsMatch_','classify_','annotateNews_','entityKey_','selectNews_','selectAnnotatedNews_','radarMetrics_','briefing_','newsDashboard_','safeCell_','newsCsv_','canonicalUrl_','domainMatches_','plainText_','validateConfiguration_','profileFeed_','defaultFeeds_','customFeeds_','configuredFeeds_','feeds_','saveFeeds','saveSourceSettings','newsletter_','newsletterContent_','subscriptionRecord_','subscriptionQuery_','subscriptionDefaults_','calendarDate_','collectionRange_','newsletterPeriod_','newsletterEmail_'];
+const names=['settings_','searchText_','businessIndex_','termsMatch_','classify_','annotateNews_','entityKey_','selectNews_','selectAnnotatedNews_','radarMetrics_','briefing_','newsDashboard_','safeCell_','newsCsv_','canonicalUrl_','domainMatches_','plainText_','validateConfiguration_','profileFeed_','defaultFeeds_','customFeeds_','configuredFeeds_','feeds_','saveFeeds','saveSourceSettings','newsletter_','newsletterContent_','subscriptionRecord_','subscriptionQuery_','subscriptionDefaults_','calendarDate_','collectionRange_','newsletterPeriod_','newsletterEmail_','newsletterNextDate_','metrics_'];
 const shared=names.map(name=>context[name].toString()).join('\n'),serialize=value=>JSON.stringify(value).replace(/</g,'\\u003c');
 const preview=`<script>(()=>{
 const NEWSLETTER_INLINE=${serialize(vm.runInContext('NEWSLETTER_INLINE',context))};
 const RADAR=${serialize(vm.runInContext('RADAR',context))},NEWSLETTER_STYLE=${serialize(vm.runInContext('NEWSLETTER_STYLE',context))};
-let configuration=${serialize(seed)},businessIndexMemory_,configuredFeedMemory_,revision='0',calendarFormatterMemory_;const selections=[];
+let configuration=${serialize(seed)},businessIndexMemory_,configuredFeedMemory_,revision='0',calendarFormatterMemory_;const selections=[],usage=[];
 const configuration_=()=>configuration,rows=${serialize(rows)},admin=${process.env.PREVIEW_ADMIN==='1'};
 const authorize_=()=>{if(!admin)throw Error('Acción de administrador.');};
 const configurationRevision_=()=>revision;
@@ -26,16 +26,20 @@ function writeConfiguration_(config,version){authorize_();if(version!==revision)
 ${shared}
 window.RADAR_PREVIEW={async call(method,q={}){
  if(method==='collectNow'){authorize_();const range=collectionRange_(q||'today',new Date()),available=rows.filter(row=>row.fecha>=range.from&&row.fecha<=range.to).length;return {added:0,pending:0,errors:[],notice:'Vista local: '+available+' noticias de la instantánea en el período '+range.from+' / '+range.to+'. La consulta remota se ejecuta únicamente en Apps Script.'};}
- if(method==='recordEvents')return {saved:true};
+ if(method==='recordEvents'){usage.push(...q.map(event=>({fecha:new Date().toISOString(),correo:'usuario@bbva.com',sesion:event.session,evento:event.event,vista:event.view,duracion_ms:event.duration})));if(usage.length>settings_().eventLimit)usage.splice(0,usage.length-settings_().eventLimit);return {saved:true};}
+ if(method==='getAudit'){authorize_();return [];}
+ if(method==='getAdoption'){authorize_();return {...metrics_(usage,Date.now()),retentionDays:settings_().retentionDays,limited:usage.length===settings_().eventLimit};}
+ if(method==='getTelemetry'){authorize_();const metrics=metrics_(usage,Date.now());return {rows:[],latencyP95:metrics.latencyP95,clientErrors:metrics.failures,collection:{processed:0,pending:0}};}
  if(method==='getConfiguration'){authorize_();return {config:JSON.parse(JSON.stringify(configuration)),revision};}
  if(method==='saveConfiguration')return writeConfiguration_(q.config,q.revision);
  if(method==='saveSourceSettings')return saveSourceSettings(q);
  if(method==='saveFeeds')return saveFeeds(q);
  if(method==='exportNews')return newsCsv_(rows,q);
  if(method==='getNewsletterOptions')return {email:'usuario@bbva.com',defaults:subscriptionDefaults_(),enabled:settings_().newsletterEnabled,catalogs:{type:[...new Set(configuration.entities.filter(r=>r.enabled).map(r=>r.type))],entity:configuration.entities.filter(r=>r.enabled).map(r=>r.name),segment:configuration.segments.filter(r=>r.enabled).map(r=>r.name),country:configuration.geographies.filter(r=>r.enabled).map(r=>r.name),topic:configuration.topics.filter(r=>r.enabled).map(r=>r.name),signal:configuration.signals.filter(r=>r.enabled).map(r=>r.name),source:[...new Set([...rows.map(r=>r.medio),...feeds_().map(r=>r.name)])].filter(Boolean).sort()}};
+ if(['sendNewsletterTest','sendPendingNewsletters','installNewsletterSchedule'].includes(method)){authorize_();throw Error('Estás en la vista local. No se envían correos ni se instalan activadores: utiliza estas acciones en la WebApp de Google Apps Script.');}
  if(method==='getNewsletterDeliveryStatus'){authorize_();return {address:settings_().newsletterSender,name:settings_().newsletterSenderName,available:false,enabled:settings_().newsletterEnabled,scheduled:false,remaining:settings_().newsletterDailyLimit,error:'Vista local: verifica el remitente y los permisos en la instalación de Apps Script.'};}
- if(method==='getAdminSubscriptions'){authorize_();return JSON.parse(JSON.stringify(selections));}
- if(method==='getSubscriptions')return JSON.parse(JSON.stringify(selections.filter(row=>row.correo==='usuario@bbva.com').map(row=>({...row,query:subscriptionQuery_(row,new Date())}))));
+ if(method==='getAdminSubscriptions'){authorize_();return JSON.parse(JSON.stringify(selections.map(row=>({...row,nextDelivery:newsletterNextDate_(row,new Date())}))));}
+ if(method==='getSubscriptions')return JSON.parse(JSON.stringify(selections.filter(row=>row.correo==='usuario@bbva.com').map(row=>({...row,query:subscriptionQuery_(row,new Date()),nextDelivery:newsletterNextDate_(row,new Date())}))));
  if(method==='saveSubscription'||method==='saveAdminSubscription'){if(method==='saveAdminSubscription')authorize_();const index=q.id?selections.findIndex(r=>r.id===q.id):-1;const row=subscriptionRecord_(q,method==='saveAdminSubscription'?q.email:'usuario@bbva.com',q.id||String(selections.length+1)+'-'+Date.now(),new Date(),selections.filter(r=>r.id!==q.id).length);if(index<0)selections.push(row);else selections[index]=row;return 'Suscripción local guardada en memoria, sin envío de correo.';}
  if(method==='deleteSubscription'){const index=selections.findIndex(row=>row.id===q);if(index<0)throw Error('Selección no encontrada.');selections.splice(index,1);return 'Selección local eliminada.';}
  if(method==='exportNewsletter'){const now=new Date(),selection=q.subscriptionId?selections.find(row=>row.id===q.subscriptionId):null;if(q.subscriptionId&&!selection)throw Error('Selección no encontrada.');return newsletter_(rows,selection?subscriptionQuery_(selection,now):q.filters||{},selection?selection.nombre:q.title||'Briefing de novedades',now);}

@@ -1,0 +1,21 @@
+import {escape} from '../core/dom.js';
+export const periods={monthly:'Mensual',weekly:'Semanal',daily:'Diaria'};
+const labels={type:'Tipo de entidad',entity:'Entidad',segment:'Segmento',country:'Ámbito',topic:'Tema',signal:'Novedad',source:'Fuente'};
+const selected=(value,current)=>value===current?' selected':'';
+function filterFields(catalogs,filters){return Object.entries(catalogs).map(([key,values])=>`<label>${labels[key]}<select name="${key}"><option value="">Todos</option>${values.map(value=>`<option${selected(value,filters[key])}>${escape(value)}</option>`).join('')}</select></label>`).join('');}
+export function subscriptionForm(options,admin,row){
+  const defaults=options.defaults,filters=row?.filtros||defaults.filters,primary=key=>['entity','segment','country'].includes(key);
+  return `<form data-subscription-form data-admin="${admin}" data-id="${escape(row?.id||'')}">
+    <div><p class="eyebrow">${row?'EDITAR SUSCRIPCIÓN':'NUEVA SUSCRIPCIÓN'}</p><h2>${row?'Preferencias de recepción':'Contenido y periodicidad'}</h2><p class="small muted">${admin?'Gestiona una suscripción del dominio BBVA.':escape(options.email)}</p></div>
+    ${admin?`<label>Correo corporativo<input name="email" type="email" required value="${escape(row?.correo||'')}" placeholder="nombre@bbva.com"></label>`:''}
+    <div class="subscription-basics"><label>Nombre<input name="name" required maxlength="100" value="${escape(row?.nombre||defaults.name)}"></label><label>Periodicidad<select name="periodicity">${Object.entries(periods).map(([value,label])=>`<option value="${value}"${selected(value,row?.periodicidad||defaults.periodicity)}>${label}</option>`).join('')}</select></label></div>
+    <div class="subscription-fields">${filterFields(Object.fromEntries(Object.entries(options.catalogs).filter(([key])=>primary(key))),filters)}</div>
+    <details class="subscription-more"><summary>Más preferencias <span>Tipo de entidad, tema, novedad, fuente y palabras clave</span></summary><div class="subscription-fields">${filterFields(Object.fromEntries(Object.entries(options.catalogs).filter(([key])=>!primary(key))),filters)}</div><label>Palabras clave<input name="search" maxlength="160" value="${escape(filters.search||'')}" placeholder="Opcional"></label></details>
+    <label class="subscription-active"><input name="active" type="checkbox"${row?.activa===false?'':' checked'}> Suscripción activa</label>
+    <p class="small muted">La primera entrega corresponde al siguiente período completo después del alta. Recibirás un correo solo si se detectan novedades.</p>
+    <div class="actions"><button class="button primary" type="submit">${row?'Guardar cambios':admin?'Crear suscripción':'Suscribirme'}</button>${admin?'<button class="button" type="button" data-close-editor>Cancelar</button>':''}</div>
+  </form>`;
+}
+export function subscriptionCards(rows,admin){
+  return rows.map(row=>`<article class="panel selection-card"><div class="news-meta"><span class="badge">${periods[row.periodicidad]}</span><span class="status-pill" data-state="${row.activa?'positive':''}">${row.activa?'Activa':'Pausada'}</span></div><h3>${escape(row.nombre)}</h3>${admin?`<p>${escape(row.correo)}</p>`:''}<div class="subscription-summary"><p class="small">${escape(Object.values(row.filtros).filter(Boolean).join(' · ')||'Todo el sector')}</p><p class="small muted">${row.filtros.country?'':'Todos los ámbitos · '}Novedades del canal</p></div><p class="small muted">${escape(row.ultimaEntrega?'Último intento: '+row.ultimaEntrega.estado+' · '+row.ultimaEntrega.desde+' / '+row.ultimaEntrega.hasta:'Sin entregas registradas')}${row.nextDelivery?' · Disponible desde '+escape(row.nextDelivery):''}</p><div class="actions"><button class="button" data-action="edit" data-id="${escape(row.id)}">Editar</button>${admin?'':`<button class="button" data-action="export" data-id="${escape(row.id)}">Vista previa</button><button class="button" data-action="apply" data-id="${escape(row.id)}">Ver noticias</button><button class="button" data-action="delete" data-id="${escape(row.id)}">Dar de baja</button>`}</div></article>`).join('')||`<div class="panel empty"><h3>${admin?'Sin suscripciones':'No tienes suscripciones'}</h3><p>${admin?'Las altas del equipo aparecerán aquí. Puedes crear una manualmente.':'Completa el formulario para recibir novedades por correo.'}</p></div>`;
+}
